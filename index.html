@@ -6,9 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Working Demo</title>
 <link rel="stylesheet" href="demo-theme.css">
-<script src="theme.js"></script>
-<!-- All three directions' display fonts, so each picker card renders in its own type. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@800&family=Nunito:wght@400;900&family=DM+Sans:wght@400&family=Space+Grotesk:wght@700&family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400&display=swap">
+<!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,600&display=swap">
 <style>
   .boundary { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.5rem; align-items:stretch; }
   .store { border-radius:12px; padding:.85rem .95rem; border:1px solid var(--line); background:#fff; }
@@ -30,28 +29,6 @@
   .card.intro { font-size:.9rem; line-height:1.6; margin-bottom:1rem; }
   .intro-steps { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
   .intro-steps span { background:var(--accent-soft); color:var(--accent-strong); border-radius:8px; padding:.3rem .6rem; font-size:.8rem; font-weight:700; }
-  /* Direction picker — each card re-scopes the tokens with its own data-theme. */
-  .dirs { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.8rem; }
-  .dir .body { background-image:var(--paper-image); background-size:var(--paper-size); }
-  .dir { text-align:left; cursor:pointer; color:var(--ink); background:var(--surface);
-         border:2px solid var(--line); border-radius:var(--radius); overflow:hidden; padding:0;
-         font:inherit; font-family:var(--font-body); transition:transform .12s, border-color .12s, box-shadow .12s; }
-  .dir:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
-  .dir[aria-pressed="true"] { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft), var(--shadow); }
-  .dir .sky { height:74px; position:relative; background:linear-gradient(var(--scene-sky-top), var(--scene-sky-bottom)); }
-  .dir .sky::after { content:''; position:absolute; left:0; right:0; bottom:0; height:26px;
-                     background:repeating-linear-gradient(180deg, var(--scene-grass-a) 0 6px, var(--scene-grass-b) 6px 12px); }
-  .dir .posts { position:absolute; left:50%; bottom:22px; width:34px; height:44px; transform:translateX(-50%);
-                border-left:3px solid var(--scene-posts); border-right:3px solid var(--scene-posts); z-index:1; }
-  .dir .posts::after { content:''; position:absolute; left:0; right:0; top:26px; border-top:3px solid var(--scene-posts); }
-  .dir .body { padding:.75rem .85rem .85rem; }
-  .dir .name { font-family:var(--font-display); font-weight:var(--display-weight); text-transform:var(--display-case);
-               letter-spacing:var(--display-track); font-size:1.15rem; }
-  .dir .desc { font-size:.8rem; color:var(--muted); margin-top:.15rem; line-height:1.45; }
-  .dir .chips { display:flex; gap:.3rem; margin-top:.55rem; align-items:center; }
-  .dir .chips i { width:16px; height:16px; border-radius:50%; display:block; border:1px solid rgba(0,0,0,.08); }
-  .dir .pick { margin-left:auto; font-size:.72rem; font-weight:800; background:var(--accent); color:var(--accent-ink);
-               border-radius:99px; padding:.15rem .55rem; }
 </style>
 </head>
 <body>
@@ -97,36 +74,6 @@
       <button class="btn secondary" data-mode="sandbox">Switch to Sandbox</button>
       <button class="btn" aria-pressed="true">Live</button></div>
   </div>
-
-  <h2 class="section">Look &amp; feel — four directions to choose from</h2>
-  <div class="dirs">
-    <button class="dir" data-theme="matchday" data-pick="matchday">
-      <div class="sky"><div class="posts"></div></div>
-      <div class="body"><div class="name">A · Matchday</div>
-        <div class="desc">Floodlit stadium, bold condensed type, scoreboard energy. Leans into the rugby league side.</div>
-        <div class="chips"><i style="background:var(--accent)"></i><i style="background:var(--chrome-bg)"></i><i style="background:var(--scene-grass-b)"></i><span class="pick">Selected</span></div></div>
-    </button>
-    <button class="dir" data-theme="grow" data-pick="grow">
-      <div class="sky"><div class="posts"></div></div>
-      <div class="body"><div class="name">B · Grow Together</div>
-        <div class="desc">Sunny day, warm greens and orange, soft rounded shapes. Leans into food, planet and community.</div>
-        <div class="chips"><i style="background:var(--accent)"></i><i style="background:var(--pop)"></i><i style="background:var(--bg)"></i><span class="pick">Selected</span></div></div>
-    </button>
-    <button class="dir" data-theme="fresh" data-pick="fresh">
-      <div class="sky"><div class="posts"></div></div>
-      <div class="body"><div class="name">C · Fresh</div>
-        <div class="desc">Bright, flat and graphic with one bold accent. Modern and neutral — the easiest to wrap brand assets around.</div>
-        <div class="chips"><i style="background:var(--accent)"></i><i style="background:var(--pop)"></i><i style="background:var(--scene-grass-b)"></i><span class="pick">Selected</span></div></div>
-    </button>
-    <button class="dir" data-theme="brand" data-pick="brand">
-      <div class="sky"><div class="posts"></div></div>
-      <div class="body"><div class="name">D · Try for Tomorrow</div><div class="desc" style="font-weight:700;color:var(--accent-strong)">Default</div>
-        <div class="desc">From the programme's design sheet: khaki, brown, cyan and ivory, graph paper and ripped-paper edges.</div>
-        <div class="chips"><i style="background:#5e8553"></i><i style="background:#6a4435"></i><i style="background:#348aa7"></i><i style="background:#fffded"></i><span class="pick">Selected</span></div></div>
-    </button>
-  </div>
-  <p class="muted" style="font-size:.78rem;margin-top:.5rem">Applies everywhere — portal, widget and admin — and is remembered on this device.
-    Colours, type and the kick scene are all tokens, so real RTF × RFL brand assets drop straight in.</p>
 
   <h2 class="section">Pathways</h2>
   <div class="grid">
@@ -244,18 +191,6 @@
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
     location.href = location.pathname + '?mode=' + b.dataset.mode;
   }));
-
-  // Direction picker.
-  function paintDirs() {
-    document.querySelectorAll('[data-pick]').forEach(b => {
-      const on = b.dataset.pick === window.TFTTheme.current;
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.querySelector('.pick').hidden = !on;
-    });
-  }
-  document.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => window.TFTTheme.set(b.dataset.pick)));
-  window.addEventListener('tft-theme', paintDirs);
-  paintDirs();
 
   document.getElementById('check').addEventListener('click', () => {
     const out = document.getElementById('check-out');

@@ -81,7 +81,6 @@ const scene = createKickScene($('scene'), {
     onGoalOnce?.(); onGoalOnce = null;
   }
 });
-window.addEventListener('tft-theme', () => scene.refresh());
 window.__kick = scene;                              // dev: __kick.preview(ms)
 
 const CALLS = ['Converted!', 'Split the posts!', 'Right down the middle!', 'What a kick!', 'Over it goes!'];

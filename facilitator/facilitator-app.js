@@ -555,10 +555,8 @@ function viewPledge(cid, n) {
   $('dl-finish').addEventListener('click', () => finishRun(cid, n));
 
   // Routing context only — provider / session / run / cohort are non-identifying.
-  // (theme is the demo's visual direction; production ships one fixed look.)
   const qs = `?provider=${encodeURIComponent(pid)}&session=${n}&run=${encodeURIComponent(run.runId)}&cohort=${encodeURIComponent(cid)}`;
-  const theme = window.TFTTheme ? `&theme=${window.TFTTheme.current}` : '';
-  $('dl-frame').src = `../public_widget/pledge-widget.html${qs}${theme}`;
+  $('dl-frame').src = `../public_widget/pledge-widget.html${qs}`;
   // Show the production-style embed URL in the boundary chrome so it is clear this
   // iframe is served from GitHub Pages in production, not from WordPress.
   $('dl-embed-url').textContent = `rtfgit.github.io/TFT/pledge-widget.html${qs}`;

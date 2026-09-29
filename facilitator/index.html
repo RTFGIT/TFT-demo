@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Facilitator Portal</title>
 <link rel="stylesheet" href="../demo-theme.css">
-<script src="../theme.js"></script>
+<!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,600&display=swap">
 <style>
   /* ─────────────────────────────────────────────────────────────────────────
      WORDPRESS COMPATIBILITY
@@ -19,7 +20,7 @@
   .wp-bar { position:fixed; top:0; left:0; right:0; height:38px; background:var(--chrome-bg);
             color:var(--chrome-ink); font-size:.78rem; display:flex; align-items:center;
             gap:.9rem; padding:0 1rem; z-index:50; }
-  /* Ripped-paper edge under the bar (direction D only; 'none' elsewhere). */
+  /* Ripped-paper edge under the bar (from the design sheet). */
   .wp-bar::after { content:''; position:absolute; left:0; right:0; top:100%; height:12px;
                    background:var(--torn-chrome); background-size:100% 100%; pointer-events:none; }
   .wp-bar .brand { font-weight:var(--display-weight); color:#fff; font-family:var(--font-display);
@@ -176,7 +177,6 @@
   <span class="mode-pill" id="wp-mode"></span>
   <span class="route" id="wp-route"></span>
   <span class="spacer"></span>
-  <span data-theme-switch></span>
   <span id="wp-user"></span>
   <a href="#" id="wp-signout" class="hidden">Sign out</a>
   <a href="../index.html">Demo home</a>
