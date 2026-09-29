@@ -6,113 +6,177 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Facilitator Portal</title>
 <link rel="stylesheet" href="../demo-theme.css">
+<script src="../theme.js"></script>
 <style>
   /* ─────────────────────────────────────────────────────────────────────────
      WORDPRESS COMPATIBILITY
      Each screen is a separate hash route mapping 1:1 to a WordPress permalink
      (see WP_ROUTES in wp-emulator.js). Every view renders from server-supplyable
      data, so each could become its own WP page template with the same markup.
+     Colours/type: theme-tokens.css via demo-theme.css.
      ───────────────────────────────────────────────────────────────────────── */
-  body { background:#eef2f7; padding-top:3.2rem; }
-  .wp-bar { position:fixed; top:0; left:0; right:0; height:34px; background:#1d2327;
-            color:#c3c4c7; font-size:.78rem; display:flex; align-items:center;
-            gap:1rem; padding:0 1rem; z-index:50; }
-  .wp-bar .brand { font-weight:700; color:#fff; }
-  .mode-pill { font-size:.66rem; font-weight:700; padding:.08rem .45rem; border-radius:99px; background:#d1fae5; color:#065f46; }
+  body { padding-top:3.4rem; }
+  .wp-bar { position:fixed; top:0; left:0; right:0; height:38px; background:var(--chrome-bg);
+            color:var(--chrome-ink); font-size:.78rem; display:flex; align-items:center;
+            gap:.9rem; padding:0 1rem; z-index:50; }
+  .wp-bar .brand { font-weight:800; color:#fff; font-family:var(--font-display);
+                   text-transform:var(--display-case); letter-spacing:.02em; font-size:.92rem;
+                   display:flex; align-items:center; gap:.4rem; }
+  .wp-bar .brand img { width:18px; height:auto; }
+  .mode-pill { font-size:.64rem; font-weight:800; padding:.08rem .45rem; border-radius:99px; background:#d1fae5; color:#065f46; }
   .mode-pill.live { background:#dbeafe; color:#1e40af; }
-
   .wp-bar .spacer { flex:1; }
-  .wp-bar a { color:#72aee6; text-decoration:none; }
-  .wp-bar a:hover { text-decoration:underline; }
-  .wp-bar .route { font-family:ui-monospace,Consolas,monospace; color:#8c8f94; font-size:.72rem; }
+  .wp-bar a { color:#fff; opacity:.85; text-decoration:none; font-weight:600; }
+  .wp-bar a:hover { opacity:1; text-decoration:underline; }
+  .wp-bar .route { font-family:ui-monospace,Consolas,monospace; opacity:.6; font-size:.7rem; }
   /* Phones: drop the permalink + user so the "Demo home" / sign-out links stay reachable. */
-  @media (max-width:640px){ .wp-bar { gap:.7rem; } .wp-bar .route, #wp-user { display:none; } }
+  .wp-bar > * { white-space:nowrap; }
+  @media (max-width:1100px){ .wp-bar .route { display:none; } }
+  @media (max-width:820px){ .wp-bar { gap:.6rem; } #wp-user { display:none; } }
+  @media (max-width:430px){ .wp-bar .brand span { display:none; } }
 
   .rail { display:flex; align-items:center; gap:.4rem; margin-bottom:1.25rem; flex-wrap:wrap; }
-  .rail .s { display:flex; align-items:center; gap:.35rem; font-size:.74rem; color:var(--muted); font-weight:600; }
-  .rail .s .dot { width:20px; height:20px; border-radius:50%; background:#fff; border:1.5px solid var(--line);
-                  display:grid; place-items:center; font-size:.66rem; }
-  .rail .s.on  .dot { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .rail .s.on  { color:var(--accent); }
+  .rail .s { display:flex; align-items:center; gap:.35rem; font-size:.74rem; color:var(--muted); font-weight:700; }
+  .rail .s .dot { width:22px; height:22px; border-radius:50%; background:var(--surface); border:1.5px solid var(--line);
+                  display:grid; place-items:center; font-size:.68rem; }
+  .rail .s.on  .dot { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .rail .s.on  { color:var(--ink); }
   .rail .s.done .dot { background:#d1fae5; border-color:#6ee7b7; color:#065f46; }
-  .rail .bar { flex:1; min-width:12px; height:1.5px; background:var(--line); }
+  .rail .bar { flex:1; min-width:12px; height:2px; background:var(--line); border-radius:2px; }
+
+  /* ── Login ─────────────────────────────────────────────────────────────── */
+  .hero { text-align:center; margin:1rem 0 1.4rem; }
+  .hero img { width:64px; height:auto; animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform:rotate(-10deg); } 50% { transform:rotate(8deg) translateY(-4px); } }
+  .hero h1 { font-size:2.3rem; line-height:1; margin-top:.5rem; }
+  .hero p { color:var(--muted); margin-top:.4rem; }
+  .acct { display:flex; align-items:center; gap:.7rem; width:100%; text-align:left; cursor:pointer;
+          border:1.5px solid var(--line); background:var(--surface); border-radius:var(--radius-sm);
+          padding:.65rem .8rem; font:inherit; color:inherit; transition:border-color .12s, transform .12s; }
+  .acct:hover { border-color:var(--accent-strong); transform:translateY(-1px); }
+  .acct .av { width:34px; height:34px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
+              display:grid; place-items:center; font-weight:900; font-family:var(--font-display); }
+  .acct .grow { flex:1; min-width:0; }
+  .acct small { color:var(--muted); font-family:ui-monospace,Consolas,monospace; font-size:.72rem; }
 
   /* ── Cohort cards ──────────────────────────────────────────────────────── */
   .cohort-card { display:flex; align-items:center; gap:1rem; padding:1rem 1.1rem;
-                 border:1px solid var(--line); border-radius:12px; background:#fff; }
-  .cohort-card .icon { width:42px; height:42px; border-radius:11px; background:#eef2ff; color:#3730a3;
-                       display:grid; place-items:center; flex:0 0 auto; }
-  .cohort-card .grow { flex:1; min-width:0; }
-  .cohort-card .ttl { font-weight:700; font-size:1.02rem; }
+                 border:1px solid var(--line); border-radius:var(--radius); background:var(--surface);
+                 box-shadow:var(--shadow); flex-wrap:wrap; }
+  .cohort-card .icon { width:46px; height:46px; border-radius:var(--radius-sm); background:var(--accent-soft); color:var(--accent-strong);
+                       display:grid; place-items:center; flex:0 0 auto; font-family:var(--font-display);
+                       font-weight:900; font-size:1.05rem; }
+  .cohort-card .grow { flex:1; min-width:180px; }
+  .cohort-card .ttl { font-weight:800; font-size:1.06rem; }
   .cohort-card .sub { font-size:.8rem; color:var(--muted); margin-top:.1rem; }
+  .cohort-card .segs { margin-top:.5rem; max-width:260px; }
   .cohort-card .acts { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
 
   /* ── Sessions ──────────────────────────────────────────────────────────── */
   .session-row { display:flex; align-items:center; gap:.9rem; padding:.9rem 1rem;
-                 border:1px solid var(--line); border-radius:12px; background:#fff;
-                 text-decoration:none; color:inherit; transition:transform .1s, box-shadow .1s; }
-  .session-row:hover { transform:translateY(-1px); box-shadow:var(--shadow); }
-  .session-row .num { width:38px; height:38px; border-radius:10px; background:#eef2ff;
-                      color:#3730a3; display:grid; place-items:center; font-weight:700; flex:0 0 auto; }
+                 border:1px solid var(--line); border-radius:var(--radius); background:var(--surface);
+                 text-decoration:none; color:inherit; transition:transform .1s, box-shadow .1s, border-color .1s; }
+  .session-row:hover { transform:translateY(-1px); box-shadow:var(--shadow); border-color:var(--accent-strong); }
+  .session-row.next { border:2px solid var(--accent); box-shadow:0 10px 26px -14px var(--accent); }
+  .session-row .num { width:42px; height:42px; border-radius:var(--radius-sm); background:var(--surface-2);
+                      border:1.5px solid var(--line); display:grid; place-items:center;
+                      font-weight:900; font-family:var(--font-display); font-size:1.15rem; flex:0 0 auto; }
+  .session-row.done .num { background:#d1fae5; border-color:#6ee7b7; color:#065f46; }
+  .session-row.next .num { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .session-row .grow { flex:1; min-width:0; }
-  .session-row .ttl { font-weight:600; }
+  .session-row .ttl { font-weight:800; }
   .session-row .sub { font-size:.78rem; color:var(--muted); }
   .grp-dots { display:flex; gap:3px; }
-  .grp-dots i { width:7px; height:7px; border-radius:50%; background:var(--line); display:block; }
+  .grp-dots i { width:8px; height:8px; border-radius:50%; background:var(--line); display:block; }
   .grp-dots i.done { background:var(--ok); }
 
   /* ── Groups & students ─────────────────────────────────────────────────── */
-  .group-card { border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; }
+  .group-card { border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
   .group-head { display:flex; align-items:center; gap:.6rem; padding:.6rem .85rem;
-                background:#f8fafc; border-bottom:1px solid var(--line); }
-  .group-head input { border:1px solid transparent; background:transparent; font-weight:700;
+                background:var(--surface-2); border-bottom:1px solid var(--line); }
+  .group-head input { border:1px solid transparent; background:transparent; font-weight:800;
                       padding:.2rem .35rem; border-radius:6px; flex:1; }
-  .group-head input:hover { border-color:var(--line); background:#fff; }
-  .group-body { padding:.6rem .85rem; display:flex; flex-direction:column; gap:.4rem; }
-  .stu { display:flex; align-items:center; gap:.55rem; }
-  .stu .av { width:26px; height:26px; border-radius:50%; background:#e0e7ff; color:#3730a3;
-             display:grid; place-items:center; font-size:.72rem; font-weight:700; flex:0 0 auto; }
-  .stu .nm { flex:1; font-size:.87rem; }
+  .group-head input:hover { border-color:var(--line); background:var(--surface); }
+  .group-body { padding:.6rem .85rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.35rem .8rem; }
+  .stu { display:flex; align-items:center; gap:.55rem; min-width:0; }
+  .av { width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent-strong);
+        display:grid; place-items:center; font-size:.74rem; font-weight:900; flex:0 0 auto; }
+  .stu .nm { flex:1; font-size:.87rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stu .ref { font-size:.66rem; }
   .stu .x { border:none; background:transparent; color:var(--muted); cursor:pointer;
             font-size:1rem; line-height:1; padding:.1rem .3rem; border-radius:5px; }
   .stu .x:hover { background:#fee2e2; color:var(--danger); }
-  .add-row { display:flex; gap:.4rem; margin-top:.2rem; }
+  .add-row { display:flex; gap:.4rem; margin-top:.2rem; grid-column:1 / -1; }
   .add-row input { flex:1; padding:.42rem .6rem; font-size:.87rem; }
 
-  .video-frame { aspect-ratio:16/9; background:#0f172a; border-radius:12px;
-                 display:grid; place-items:center; color:#64748b; border:1px solid var(--line); }
+  .video-frame { aspect-ratio:16/9; background:#0b1020; border-radius:var(--radius);
+                 display:grid; place-items:center; color:#8a93b2; border:1px solid var(--line); }
 
-  .deliver { display:grid; grid-template-columns:minmax(210px,280px) 1fr; gap:1rem; align-items:start; }
-  @media (max-width:820px){ .deliver { grid-template-columns:1fr; } }
-  .roster-item { display:flex; align-items:center; gap:.55rem; padding:.45rem .6rem;
-                 border-radius:9px; border:1px solid var(--line); background:#fff; }
-  .roster-item.done { opacity:.5; }
-  .roster-item.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(37,99,235,.14); }
-  .roster-item .nm { flex:1; font-size:.86rem; }
-  .roster-item .av { width:26px; height:26px; border-radius:50%; background:#e0e7ff;
-                     color:#3730a3; display:grid; place-items:center; font-size:.72rem; font-weight:700; }
-  iframe.widget-frame { width:100%; border:none; display:block; min-height:540px; border-radius:8px; background:#fff; }
+  /* ── Delivery (pledge capture) ─────────────────────────────────────────── */
+  .deliver { display:grid; grid-template-columns:minmax(230px,300px) minmax(0,1fr); gap:1.1rem; align-items:start; }
+  .deliver > * { min-width:0; }
+  @media (max-width:820px){ .deliver { grid-template-columns:1fr; } .deliver > :first-child { order:2; } }
+  .roster-panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+                  padding:.9rem; box-shadow:var(--shadow); position:sticky; top:3.6rem; }
+  .roster-list { display:flex; flex-direction:column; gap:.3rem; max-height:52vh; overflow:auto; margin:.7rem -.2rem 0; padding:0 .2rem; }
+  .roster-item { display:flex; align-items:center; gap:.55rem; padding:.42rem .55rem;
+                 border-radius:var(--radius-sm); border:1.5px solid transparent; background:transparent;
+                 font:inherit; color:inherit; text-align:left; width:100%; cursor:pointer; }
+  .roster-item:hover:not(:disabled) { background:var(--surface-2); }
+  .roster-item:disabled { cursor:default; }
+  .roster-item.done { opacity:.55; }
+  .roster-item.skipped .nm { text-decoration:line-through; }
+  .roster-item.active { border-color:var(--accent); background:var(--accent-soft); }
+  .roster-item .nm { flex:1; font-size:.88rem; font-weight:600; }
+  .roster-item .st { font-size:.68rem; font-weight:800; color:var(--muted); }
+  .roster-item.active .st { color:var(--accent-strong); }
+  .roster-item.done .av { background:#d1fae5; color:#065f46; }
+  .all-done { margin-top:.8rem; background:#d1fae5; border:1px solid #6ee7b7; color:#065f46;
+              border-radius:var(--radius-sm); padding:.6rem .75rem; font-size:.84rem; font-weight:700;
+              animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 5px rgba(16,185,129,.18); } }
+  iframe.widget-frame { width:100%; border:none; display:block; min-height:560px; border-radius:var(--radius); background:transparent; }
   /* The embedded-widget boundary: makes the WordPress ↔ GitHub-Pages seam visible. */
-  .embed { border:2px dashed #3b82f6; border-radius:12px; padding:.55rem; background:#f5f9ff; position:relative; }
-  .embed-tab { position:absolute; top:-11px; left:14px; background:#2563eb; color:#fff;
-               font-size:.66rem; font-weight:700; padding:.12rem .55rem; border-radius:6px; letter-spacing:.03em; }
-  .embed-url { font-family:ui-monospace,Consolas,monospace; font-size:.66rem; color:#1e40af;
-               background:#e0edff; border-radius:6px; padding:.28rem .5rem; margin-bottom:.5rem;
+  .embed { border:2px dashed color-mix(in srgb, var(--accent-strong) 55%, transparent); border-radius:calc(var(--radius) + 6px);
+           padding:.55rem; position:relative; }
+  .embed-tab { position:absolute; top:-11px; left:14px; background:var(--accent-strong); color:#fff;
+               font-size:.64rem; font-weight:800; padding:.12rem .55rem; border-radius:6px; letter-spacing:.03em; }
+  .embed-url { font-family:ui-monospace,Consolas,monospace; font-size:.66rem; color:var(--muted);
+               background:var(--surface-2); border-radius:6px; padding:.28rem .5rem; margin-bottom:.5rem;
                overflow-x:auto; white-space:nowrap; }
   .embed-note { font-size:.74rem; color:var(--muted); margin-top:.5rem; }
+  .embed-note a { color:var(--accent-strong); }
+
+  /* ── Complete ──────────────────────────────────────────────────────────── */
+  .done-hero { text-align:center; padding:1.6rem 1.2rem 1.2rem; }
+  .done-hero img { width:58px; height:auto; animation:bob 3s ease-in-out infinite; }
+  .done-hero h1 { font-size:2rem; margin:.4rem 0 .2rem; }
+  .breakdown { display:flex; flex-direction:column; gap:.55rem; }
+  .bk { display:grid; grid-template-columns:1fr auto; gap:.2rem .7rem; align-items:center; }
+  .bk .t { font-size:.86rem; }
+  .bk .c { font-weight:900; font-family:var(--font-display); font-size:1.05rem; }
+  .bk .bar-track { grid-column:1 / -1; }
+  .bk.top .t { font-weight:800; }
+  .own-list { margin-top:.4rem; display:flex; flex-direction:column; gap:.35rem; }
+  .own-list div { font-size:.84rem; background:var(--surface-2); border:1px solid var(--line);
+                  border-radius:var(--radius-sm); padding:.45rem .6rem; }
+  .next-card { display:flex; align-items:center; gap:.9rem; }
+  .next-card .num { width:48px; height:48px; border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-ink);
+                    display:grid; place-items:center; font-weight:900; font-family:var(--font-display); font-size:1.3rem; flex:0 0 auto; }
   .hidden { display:none !important; }
 </style>
 </head>
 <body>
 
 <div class="wp-bar">
-  <span class="brand">⊞ tryfortomorrow.org</span>
+  <span class="brand"><img src="../public_widget/assets/rugby-ball@2x.png" alt=""><span>Try for Tomorrow</span></span>
   <span class="mode-pill" id="wp-mode"></span>
   <span class="route" id="wp-route"></span>
   <span class="spacer"></span>
+  <span data-theme-switch></span>
   <span id="wp-user"></span>
   <a href="#" id="wp-signout" class="hidden">Sign out</a>
-  <a href="../index.html">← Demo home</a>
+  <a href="../index.html">Demo home</a>
 </div>
 
 <div id="app"></div>
@@ -120,22 +184,22 @@
 <!-- ══ 1. LOGIN ═══════════════════════════════════════════════════════════ -->
 <template id="v-login">
   <div class="wrap narrow">
-    <header class="page">
-      <div class="eyebrow">Facilitator Portal</div>
-      <h1>Sign in</h1>
-      <p class="sub">Stands in for your WordPress login. Student names live here and never travel onward.</p>
-    </header>
+    <div class="hero">
+      <img src="../public_widget/assets/rugby-ball@2x.png" alt="">
+      <h1 class="display">Try for Tomorrow</h1>
+      <p>Facilitator portal — sign in to deliver a session.</p>
+    </div>
     <div class="card">
-      <label class="field"><span>Email</span><input type="email" id="li-email" placeholder="alex@democollege.ac.uk"></label>
-      <label class="field"><span>Password</span><input type="password" id="li-pass" placeholder="tftdemo"></label>
-      <button class="btn" id="li-go" style="width:100%">Sign in</button>
+      <label class="field"><span>Email</span><input type="email" id="li-email" placeholder="you@school.ac.uk" autocomplete="username"></label>
+      <label class="field"><span>Password</span><input type="password" id="li-pass" autocomplete="current-password"></label>
+      <button class="btn big wide" id="li-go">Sign in</button>
       <div id="li-err" class="hidden" style="color:var(--danger);font-size:.83rem;margin-top:.6rem"></div>
     </div>
-    <h2 class="section">Demo accounts</h2>
-    <table><thead><tr><th>Email</th><th>Password</th><th>Provider</th></tr></thead><tbody id="li-accounts"></tbody></table>
-    <p class="muted" style="font-size:.78rem;margin-top:.7rem">
-      Two or more facilitators may sign in with the same account on different devices at once —
-      each works with a different cohort or group.
+    <h2 class="section">Demo accounts — tap to sign in</h2>
+    <div class="stack" id="li-accounts"></div>
+    <p class="muted" style="font-size:.78rem;margin-top:.8rem">
+      Stands in for your WordPress login. Student names live here and never travel onward.
+      Two or more facilitators may use the same account on different devices at once.
     </p>
   </div>
 </template>
@@ -145,24 +209,25 @@
   <div class="wrap">
     <header class="page">
       <div class="eyebrow" id="co-provider"></div>
-      <h1>Cohorts</h1>
-      <p class="sub">A cohort is a class, year group, school or club — like “Year 9 Rugby” or “Castleford RFL Juniors”. Add one per group you run the programme with.</p>
+      <h1>Your cohorts</h1>
+      <p class="sub" id="co-summary">A cohort is a class, year group or club squad. Each one works through the six sessions.</p>
     </header>
-    <div class="emulation-note">
-      <strong>Emulated boundary.</strong> Student names live on the WordPress side only
-      (<code>tft26_wp_emulator_v1</code>). The pledge database only ever sees a pseudonymous ID.
-      Verify with <code>__wp.boundaryReport()</code>.
-    </div>
 
-    <div class="card" style="margin-bottom:1rem">
-      <div class="row" style="align-items:flex-end;gap:.5rem">
-        <label class="field" style="flex:1;margin-bottom:0"><span>New cohort name</span>
-          <input type="text" id="co-new" placeholder="e.g. Year 9 Rugby"></label>
+    <div class="stack" id="co-list"></div>
+
+    <div class="card" style="margin-top:1.1rem">
+      <div class="row" style="align-items:flex-end;gap:.5rem;flex-wrap:wrap">
+        <label class="field" style="flex:1;min-width:200px;margin-bottom:0"><span>Start a new cohort</span>
+          <input type="text" id="co-new" placeholder="e.g. Year 7 Tag Rugby"></label>
         <button class="btn" id="co-add">Create cohort</button>
       </div>
     </div>
 
-    <div class="stack" id="co-list"></div>
+    <div class="emulation-note" style="margin-top:1.2rem">
+      <strong>Emulated boundary.</strong> Student names live on the WordPress side only
+      (<code>tft26_wp_emulator_v1</code>). The pledge database only ever sees a pseudonymous ID.
+      Verify with <code>__wp.boundaryReport()</code>.
+    </div>
   </div>
 </template>
 
@@ -190,7 +255,7 @@
 
     <div class="row between" style="margin-top:1.4rem;flex-wrap:wrap;gap:.6rem">
       <span class="muted" style="font-size:.84rem" id="mc-count"></span>
-      <button class="btn" id="mc-done" disabled>Deliver sessions →</button>
+      <button class="btn big" id="mc-done" disabled>Deliver sessions →</button>
     </div>
   </div>
 </template>
@@ -226,7 +291,7 @@
       <p class="sub" id="sd-blurb"></p>
     </header>
 
-    <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:1rem">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:1rem">
       <div class="card">
         <h2 class="section" style="margin-top:0">What students will do</h2>
         <ul id="sd-objectives" style="font-size:.87rem;line-height:1.75;margin-left:1rem"></ul>
@@ -234,7 +299,7 @@
       </div>
       <div class="card">
         <h2 class="section" style="margin-top:0">Thematic question</h2>
-        <div id="sd-question" style="font-weight:600;font-size:.95rem"></div>
+        <div id="sd-question" style="font-weight:700;font-size:.98rem"></div>
         <div class="muted" style="font-size:.8rem;margin-top:.5rem" id="sd-prompt"></div>
       </div>
     </div>
@@ -256,7 +321,7 @@
     </div>
 
     <div style="margin-top:1.25rem">
-      <button class="btn" id="sd-start" style="width:100%" disabled>Start session →</button>
+      <button class="btn big wide" id="sd-start" disabled>Start session →</button>
     </div>
   </div>
 </template>
@@ -273,42 +338,44 @@
     </header>
     <div class="video-frame" style="margin-bottom:1rem">
       <div style="text-align:center">
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="#475569" stroke="none"/>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>
         </svg>
         <div style="margin-top:.6rem;font-size:.84rem" id="vd-videonote">Placeholder — no video URL set for this session</div>
       </div>
     </div>
     <div class="card" style="margin-bottom:1rem">
       <h2 class="section" style="margin-top:0">Coming up next</h2>
-      <div style="font-weight:600;font-size:.95rem" id="vd-question"></div>
+      <div style="font-weight:700;font-size:.98rem" id="vd-question"></div>
       <div class="muted" style="font-size:.82rem;margin-top:.35rem">
-        After the video, each student answers this one at a time on the shared device.
+        After the video, each student takes their turn on the device: pick a pledge, kick it over the posts.
       </div>
     </div>
-    <button class="btn" id="vd-next" style="width:100%">Continue to pledges →</button>
+    <button class="btn big wide" id="vd-next">Continue to pledges →</button>
   </div>
 </template>
 
 <!-- ══ 7. PLEDGE CAPTURE ══════════════════════════════════════════════════ -->
 <template id="v-pledge">
-  <div class="wrap">
+  <div class="wrap" style="max-width:1080px">
     <div class="crumb"><a href="#" id="dl-back">← Video</a> · <span id="dl-crumb"></span></div>
     <div class="rail" id="dl-rail"></div>
     <header class="page">
       <div class="eyebrow" id="dl-eyebrow"></div>
-      <h1>Collect pledges</h1>
-      <p class="sub">Select a student, hand them the device, then choose the next.</p>
+      <h1>Pledge time</h1>
+      <p class="sub">Each student takes a turn on the device. The next one comes up automatically — tap any name to jump.</p>
     </header>
     <div class="deliver">
-      <div>
-        <div class="row between" style="margin-bottom:.5rem">
-          <h2 class="section" style="margin:0" id="dl-groupname">Students</h2>
+      <div class="roster-panel">
+        <div class="row between">
+          <strong id="dl-groupname">Students</strong>
           <span class="pill live" id="dl-progress">0 / 0</span>
         </div>
-        <div class="stack" id="dl-roster"></div>
-        <button class="btn" id="dl-finish" style="width:100%;margin-top:.9rem">Finish session</button>
-        <p class="muted" style="font-size:.75rem;margin-top:.5rem">
+        <div class="bar-track" style="margin-top:.55rem"><div class="bar-fill" id="dl-bar" style="width:0%"></div></div>
+        <div class="roster-list" id="dl-roster"></div>
+        <div class="all-done hidden" id="dl-alldone">Everyone’s had their turn — finish the session when you’re ready.</div>
+        <button class="btn wide" id="dl-finish" style="margin-top:.8rem">Finish session</button>
+        <p class="muted" style="font-size:.74rem;margin-top:.5rem">
           You can finish early — anyone not yet pledged is simply left out of this run.
         </p>
       </div>
@@ -321,7 +388,7 @@
         <div class="embed-note">
           Everything outside the dashed frame is your WordPress site (emulated here). The frame is the
           embeddable widget — the only part served from GitHub Pages, that talks to Firebase, and that
-          never sees a name. <a href="../integration.html" target="_blank">How it embeds →</a>
+          never stores a name. <a href="../integration.html" target="_blank">How it embeds →</a>
         </div>
       </div>
     </div>
@@ -332,21 +399,38 @@
 <template id="v-complete">
   <div class="wrap narrow">
     <div class="rail" id="cp-rail"></div>
-    <div class="card" style="text-align:center;padding:2rem 1.5rem">
-      <svg width="58" height="58" viewBox="0 0 52 52" fill="none" style="margin-bottom:.8rem">
-        <circle cx="26" cy="26" r="24" stroke="#059669" stroke-width="3" opacity=".25"/>
-        <path d="M15 27l8 8 15-16" stroke="#059669" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <h1 style="font-size:1.4rem;margin-bottom:.3rem" id="cp-title">Session complete</h1>
+    <div class="card done-hero">
+      <img src="../public_widget/assets/rugby-ball@2x.png" alt="">
+      <h1 class="display" id="cp-title">Session complete</h1>
       <p class="muted" style="font-size:.92rem;margin-bottom:1.2rem" id="cp-sub"></p>
-      <div class="stats" style="margin-bottom:1.4rem">
-        <div class="stat"><div class="n" id="cp-pledges">0</div><div class="l">Pledges captured</div></div>
-        <div class="stat"><div class="n" id="cp-of">0</div><div class="l">Students in group</div></div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="cp-pledges">0</div><div class="l">Pledges</div></div>
+        <div class="stat"><div class="n" id="cp-of">0</div><div class="l">In the group</div></div>
+        <div class="stat"><div class="n" id="cp-own">0</div><div class="l">Own ideas</div></div>
       </div>
-      <div class="row" style="gap:.6rem">
-        <button class="btn secondary" id="cp-cohorts" style="flex:1">All cohorts</button>
-        <button class="btn" id="cp-back" style="flex:1">Back to sessions</button>
+    </div>
+
+    <div class="card" style="margin-top:1rem" id="cp-bk-card">
+      <h2 class="section" style="margin-top:0">What the group pledged</h2>
+      <div class="breakdown" id="cp-breakdown"><div class="muted" style="font-size:.85rem">Loading…</div></div>
+      <div id="cp-own-wrap" class="hidden" style="margin-top:.9rem">
+        <div style="font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">Their own ideas</div>
+        <div class="own-list" id="cp-own-list"></div>
       </div>
+    </div>
+
+    <div class="card next-card" style="margin-top:1rem" id="cp-next-card">
+      <div class="num" id="cp-next-num">2</div>
+      <div style="flex:1;min-width:0">
+        <div class="muted" style="font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Up next</div>
+        <div style="font-weight:800" id="cp-next-title"></div>
+      </div>
+      <button class="btn" id="cp-next">Plan it →</button>
+    </div>
+
+    <div class="row" style="gap:.6rem;margin-top:1rem">
+      <button class="btn secondary" id="cp-cohorts" style="flex:1">All cohorts</button>
+      <button class="btn secondary" id="cp-back" style="flex:1">Back to sessions</button>
     </div>
   </div>
 </template>

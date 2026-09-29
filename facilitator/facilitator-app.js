@@ -47,7 +47,7 @@ import {
   collection, getDocs, serverTimestamp, runTransaction, increment,
   getAuth, signInWithEmailAndPassword, signOut, MODE, currentUser
 } from '../data-layer.js';
-import { SESSION_COUNT, EXPECTED_GROUPS } from '../public_widget/session-config.js';
+import { SESSION_COUNT, EXPECTED_GROUPS, OWN_SUGGESTION_INDEX } from '../public_widget/session-config.js';
 
 const app = initializeApp({ projectId: 'tft26-local' });
 const db  = getFirestore(app);
@@ -119,8 +119,19 @@ function rail(el, step) {
 // ═══ 1. LOGIN ════════════════════════════════════════════════════════════════
 function viewLogin() {
   show('v-login');
-  $('li-accounts').innerHTML = wpAccounts().map(a =>
-    `<tr><td><code>${esc(a.email)}</code></td><td><code>${esc(a.password)}</code></td><td>${esc(a.provider)}</td></tr>`).join('');
+  // One tap signs in as a demo facilitator — the fastest way into a walkthrough.
+  $('li-accounts').innerHTML = wpAccounts().map(a => `
+    <button class="acct" data-email="${esc(a.email)}" data-pass="${esc(a.password)}">
+      <span class="av">${esc(initial(a.display_name || a.email))}</span>
+      <span class="grow"><strong>${esc(a.display_name || a.email)}</strong> · ${esc(a.provider)}<br>
+        <small>${esc(a.email)} / ${esc(a.password)}</small></span>
+      <span class="muted">→</span>
+    </button>`).join('');
+  appEl.querySelectorAll('[data-email]').forEach(b => b.addEventListener('click', () => {
+    $('li-email').value = b.dataset.email;
+    $('li-pass').value = b.dataset.pass;
+    go();
+  }));
   const go = async () => {
     const email = $('li-email').value.trim(), password = $('li-pass').value;
     try {
@@ -150,33 +161,82 @@ function viewLogin() {
 }
 
 // ═══ 2. COHORTS ══════════════════════════════════════════════════════════════
-function viewCohorts() {
+/**
+ * How far a cohort has got. A session is "done" once every group has a closed
+ * run of it, "part" once at least one group has. `next` is the first session
+ * that isn't done (null when all six are).
+ */
+function cohortProgress(cid, groups, runs) {
+  const mine = runs.filter(r => r.cohort_id === cid);
+  const gids = groups.map(g => g.id);
+  const perSession = [];
+  for (let n = 1; n <= SESSION_COUNT; n++) {
+    const closed = new Set(mine.filter(r => r.session === n && r.status === 'closed').map(r => r.group_id));
+    const hit = gids.filter(g => closed.has(g)).length;
+    perSession.push(gids.length && hit === gids.length ? 'done' : hit > 0 ? 'part' : '');
+  }
+  const i = perSession.findIndex(s => s !== 'done');
+  return {
+    perSession,
+    done: perSession.filter(s => s === 'done').length,
+    next: i >= 0 ? i + 1 : null,
+    pledges: mine.reduce((a, r) => a + (r.pledge_count || 0), 0),
+    last: Math.max(0, ...mine.map(r => r.started_at?.seconds || 0))
+  };
+}
+const segs = (per) => `<div class="segs">${per.map((s, i) =>
+  `<i class="${s}" title="Session ${i + 1}${s === 'done' ? ' — delivered' : s === 'part' ? ' — some groups' : ''}"></i>`).join('')}</div>`;
+const ago = (secs) => {
+  if (!secs) return '';
+  const d = Math.round((Date.now() / 1000 - secs) / 86400);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? `${d} days ago` : `${Math.round(d / 7)} weeks ago`;
+};
+// A short badge for a cohort: 'Year 9 Rugby' -> Y9, 'U12s' -> U12, 'Girls Academy' -> GA.
+const badge = (s) => {
+  const num = (s.match(/\d+/) || [''])[0];
+  const letters = s.replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).map(w => w[0] || '').join('').toUpperCase();
+  return num ? (letters[0] || '#') + num : letters.slice(0, 2) || '?';
+};
+
+async function viewCohorts() {
   show('v-cohorts');
   const pid = user.provider_id;
   $('co-provider').textContent = user.provider_name;
+  let runs = [];
+  try { runs = await allRuns(); } catch (e) { console.warn('[TFT26] runs unavailable', e); }
 
   function paint() {
     const cohorts = wpCohorts(pid);
+    const students = cohorts.reduce((a, c) => a + c.students, 0);
+    const pledges = runs.reduce((a, r) => a + (r.pledge_count || 0), 0);
+    if (cohorts.length) {
+      $('co-summary').textContent = `${cohorts.length} cohort${cohorts.length === 1 ? '' : 's'} · ${students} students · ${pledges} pledge${pledges === 1 ? '' : 's'} so far`;
+    }
     $('co-list').innerHTML = cohorts.length === 0
-      ? '<div class="empty">No cohorts yet. Create your first one above.</div>'
-      : cohorts.map(c => `
+      ? '<div class="empty">No cohorts yet. Create your first one below.</div>'
+      : cohorts.map(c => {
+        const p = cohortProgress(c.cohort_id, wpGroups(pid, c.cohort_id), runs);
+        const nextPage = p.next ? wpSessionPage(p.next) : null;
+        const status = p.next === null ? 'All six sessions delivered 🎉'
+                     : nextPage ? `Next up: Session ${p.next} · ${nextPage.title}` : '';
+        const icon = badge(c.label);
+        return `
         <div class="cohort-card" data-cohort="${esc(c.cohort_id)}">
-          <div class="icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
+          <div class="icon">${esc(icon)}</div>
           <div class="grow">
             <div class="ttl">${esc(c.label)}</div>
-            <div class="sub">${c.students} student${c.students === 1 ? '' : 's'} · ${c.groups} group${c.groups === 1 ? '' : 's'}</div>
+            <div class="sub">${c.students} student${c.students === 1 ? '' : 's'} · ${c.groups} group${c.groups === 1 ? '' : 's'}
+              · ${p.done}/${SESSION_COUNT} sessions${p.pledges ? ` · ${p.pledges} pledges` : ''}${p.last ? ` · last ${ago(p.last)}` : ''}</div>
+            ${segs(p.perSession)}
+            <div class="sub" style="margin-top:.35rem;font-weight:700;color:var(--ink)">${esc(status)}</div>
           </div>
           <div class="acts">
             <button class="btn secondary" data-manage="${esc(c.cohort_id)}">Manage</button>
-            <button class="btn" data-deliver="${esc(c.cohort_id)}" ${c.students === 0 ? 'disabled title="Add students first"' : ''}>Deliver →</button>
+            <button class="btn" data-deliver="${esc(c.cohort_id)}" ${c.students === 0 ? 'disabled title="Add students first"' : ''}>${p.done === 0 && p.pledges === 0 ? 'Start →' : 'Deliver →'}</button>
             <button class="btn ghost" data-delcohort="${esc(c.cohort_id)}" title="Delete cohort">✕</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
 
     appEl.querySelectorAll('[data-manage]').forEach(b => b.addEventListener('click', () => go2(H.cohort(b.dataset.manage))));
     appEl.querySelectorAll('[data-deliver]').forEach(b => b.addEventListener('click', () => go2(H.sessions(b.dataset.deliver))));
@@ -319,24 +379,33 @@ async function viewSessions(cid) {
   $('se-crumb').setAttribute('href', H.cohorts());
   $('se-setup').addEventListener('click', () => go2(H.cohort(cid)));
 
-  const runs = (await allRuns()).filter(r => r.cohort_id === cid);
+  const allOfMine = await allRuns();
+  const runs = allOfMine.filter(r => r.cohort_id === cid);
   const groupIds = new Set(groups.map(g => g.id));
+  const prog = cohortProgress(cid, groups, allOfMine);
   let totalRuns = 0, totalPledges = 0;
 
   $('se-list').innerHTML = wpSessionPages().map(p => {
     const sRuns = runs.filter(r => r.session === p.n);
     const pledges = sRuns.reduce((a, r) => a + (r.pledge_count || 0), 0);
     totalRuns += sRuns.length; totalPledges += pledges;
-    const doneGroups = new Set(sRuns.filter(r => groupIds.has(r.group_id)).map(r => r.group_id));
+    const doneGroups = new Set(sRuns.filter(r => r.status === 'closed' && groupIds.has(r.group_id)).map(r => r.group_id));
+    const live = sRuns.some(r => r.status === 'open');
+    const state = prog.perSession[p.n - 1];
+    const isNext = prog.next === p.n;
     const dots = groups.map(g => `<i class="${doneGroups.has(g.id) ? 'done' : ''}" title="${esc(g.label)}"></i>`).join('');
-    return `<a class="session-row" href="${H.detail(cid, p.n)}">
-        <div class="num">${p.n}</div>
+    const pill = live ? '<span class="pill live">in progress</span>'
+               : isNext ? '<span class="pill next">Next up</span>'
+               : state === 'done' ? '<span class="pill ok">Delivered</span>'
+               : '<span class="pill none">Not yet</span>';
+    return `<a class="session-row ${state === 'done' ? 'done' : ''} ${isNext ? 'next' : ''}" href="${H.detail(cid, p.n)}">
+        <div class="num">${state === 'done' ? '✓' : p.n}</div>
         <div class="grow">
-          <div class="ttl">${esc(p.title)}</div>
-          <div class="sub">${pledges} pledge${pledges === 1 ? '' : 's'} · ${doneGroups.size}/${groups.length} groups done</div>
+          <div class="ttl">Session ${p.n} · ${esc(p.title)}</div>
+          <div class="sub">${pledges} pledge${pledges === 1 ? '' : 's'} · ${doneGroups.size}/${groups.length} group${groups.length === 1 ? '' : 's'} delivered</div>
         </div>
         <div class="grp-dots">${dots}</div>
-        ${sRuns.length ? `<span class="pill ok">${sRuns.length}×</span>` : '<span class="pill none">—</span>'}
+        ${pill}
       </a>`;
   }).join('');
 
@@ -486,59 +555,103 @@ function viewPledge(cid, n) {
   $('dl-finish').addEventListener('click', () => finishRun(cid, n));
 
   // Routing context only — provider / session / run / cohort are non-identifying.
+  // (theme is the demo's visual direction; production ships one fixed look.)
   const qs = `?provider=${encodeURIComponent(pid)}&session=${n}&run=${encodeURIComponent(run.runId)}&cohort=${encodeURIComponent(cid)}`;
-  $('dl-frame').src = `../public_widget/pledge-widget.html${qs}`;
+  const theme = window.TFTTheme ? `&theme=${window.TFTTheme.current}` : '';
+  $('dl-frame').src = `../public_widget/pledge-widget.html${qs}${theme}`;
   // Show the production-style embed URL in the boundary chrome so it is clear this
   // iframe is served from GitHub Pages in production, not from WordPress.
   $('dl-embed-url').textContent = `rtfgit.github.io/TFT/pledge-widget.html${qs}`;
   paintRoster();
 }
 
+/**
+ * The turn order. Students go in roster order; anyone skipped drops to the back
+ * (they can still be tapped). `next` is who comes up after the current player.
+ */
+function turnOrder(run) {
+  const roster = wpRoster(user.provider_id, run.cohortId, run.groupId);
+  const done = new Set(run.done), skipped = new Set(run.skipped || []);
+  const waiting = roster.filter(s => !done.has(s.student_ref) && !skipped.has(s.student_ref) && s.student_ref !== run.current);
+  return { roster, done, skipped, next: waiting[0] || null };
+}
+
 function paintRoster() {
   const run = activeRun.get();
-  if (!run) return;
-  const roster = wpRoster(user.provider_id, run.cohortId, run.groupId);
-  const done = new Set(run.done);
+  if (!run || !$('dl-roster')) return;
+  const { roster, done, skipped, next } = turnOrder(run);
   $('dl-progress').textContent = `${done.size} / ${roster.length}`;
-  $('dl-roster').innerHTML = roster.map(s => `
-    <div class="roster-item ${done.has(s.student_ref) ? 'done' : ''} ${run.current === s.student_ref ? 'active' : ''}">
-      <div class="av">${esc(initial(s.display_name))}</div>
-      <div class="nm">${esc(s.display_name)}</div>
-      ${done.has(s.student_ref) ? '<span class="pill ok">done</span>'
-        : `<button class="btn ghost" data-ref="${esc(s.student_ref)}">Select</button>`}
-    </div>`).join('');
+  $('dl-bar').style.width = roster.length ? `${Math.round(done.size / roster.length * 100)}%` : '0%';
+  $('dl-roster').innerHTML = roster.map(s => {
+    const isDone = done.has(s.student_ref), isNow = run.current === s.student_ref;
+    const st = isDone ? '✓ pledged' : isNow ? 'Now' : skipped.has(s.student_ref) ? 'skipped'
+             : next && next.student_ref === s.student_ref ? 'Up next' : '';
+    return `<button class="roster-item ${isDone ? 'done' : ''} ${isNow ? 'active' : ''} ${skipped.has(s.student_ref) ? 'skipped' : ''}"
+        data-ref="${esc(s.student_ref)}" ${isDone ? 'disabled' : ''}>
+      <span class="av">${isDone ? '✓' : esc(initial(s.display_name))}</span>
+      <span class="nm">${esc(s.display_name)}</span>
+      <span class="st">${st}</span>
+    </button>`;
+  }).join('');
+  const everyone = roster.length > 0 && done.size + skipped.size >= roster.length && !run.current;
+  $('dl-alldone').classList.toggle('hidden', !everyone);
+  $('dl-finish').classList.toggle('big', everyone);
   appEl.querySelectorAll('[data-ref]').forEach(b => b.addEventListener('click', () => selectStudent(b.dataset.ref)));
+  appEl.querySelector('.roster-item.active')?.scrollIntoView({ block: 'nearest' });
 }
 
 /** Hand a student to the widget: ref for storage, name for on-screen display only. */
 function selectStudent(ref) {
   const run = activeRun.get();
+  const frame = $('dl-frame');
+  if (!run || !frame) return;
   const s = wpRoster(user.provider_id, run.cohortId, run.groupId).find(x => x.student_ref === ref);
   if (!s) return;
-  $('dl-frame').contentWindow.postMessage({
+  frame.contentWindow.postMessage({
     type: 'TFT_SET_STUDENT', student_ref: s.student_ref, display_name: s.display_name
   }, '*');
-  activeRun.set({ ...run, current: ref });
+  activeRun.set({ ...run, current: ref, skipped: (run.skipped || []).filter(x => x !== ref) });
   paintRoster();
+}
+
+/** Bring up the next player automatically — or tell the widget that's everyone. */
+function selectNext() {
+  const run = activeRun.get();
+  if (!run) return;
+  const { next } = turnOrder(run);
+  if (next) selectStudent(next.student_ref);
+  else { $('dl-frame')?.contentWindow.postMessage({ type: 'TFT_ALL_DONE' }, '*'); paintRoster(); }
 }
 
 window.addEventListener('message', (e) => {
   const t = e.data?.type;
+  if (!t || !t.startsWith('TFT_') || !$('dl-frame')) return;
   const run = activeRun.get();
-  if (t === 'TFT_PLEDGE_SAVED' && run?.current) {
+  if (t === 'TFT_HEIGHT') { $('dl-frame').style.height = e.data.height + 'px'; return; }
+  if (!run) return;
+  if (t === 'TFT_WIDGET_READY') {
+    // Fresh load (or a refresh mid-turn): re-hand the current player, else start the queue.
+    if (run.current) selectStudent(run.current); else selectNext();
+  } else if (t === 'TFT_PLEDGE_SAVED' && run.current) {
     activeRun.set({ ...run, done: [...new Set([...run.done, run.current])], current: null });
     paintRoster();
-  } else if (t === 'TFT_STUDENT_SKIPPED' && run) {
-    activeRun.set({ ...run, current: null });
-    paintRoster();
-  } else if (t === 'TFT_HEIGHT' && $('dl-frame')) {
-    $('dl-frame').style.height = e.data.height + 'px';
+  } else if (t === 'TFT_READY_FOR_NEXT') {
+    selectNext();
+  } else if (t === 'TFT_STUDENT_SKIPPED') {
+    const skipped = run.current ? [...new Set([...(run.skipped || []), run.current])] : (run.skipped || []);
+    activeRun.set({ ...run, current: null, skipped });
+    selectNext();
   }
 });
 
 // ═══ 8. COMPLETE ═════════════════════════════════════════════════════════════
 async function finishRun(cid, n) {
   const run = activeRun.get();
+  if (run) {
+    const { roster, done } = turnOrder(run);
+    const left = roster.length - done.size;
+    if (left > 0 && !confirm(`${left} student${left === 1 ? " hasn't" : "s haven't"} pledged yet. Finish the session anyway?`)) return;
+  }
   if (run?.runId) {
     await updateDoc(doc(db, 'providers', user.provider_id, 'runs', run.runId), { status: 'closed', ended_at: serverTimestamp() });
   }
@@ -547,7 +660,7 @@ async function finishRun(cid, n) {
   go2(H.complete(cid, n));
 }
 
-function viewComplete(cid, n) {
+async function viewComplete(cid, n) {
   const pid = user.provider_id;
   const cohort = wpGetCohort(pid, cid);
   const page = wpSessionPage(n);
@@ -558,12 +671,56 @@ function viewComplete(cid, n) {
   const group = wpGroups(pid, cid).find(g => g.id === last.groupId);
   const total = last.groupId ? wpRoster(pid, cid, last.groupId).length : 0;
 
-  $('cp-title').textContent   = `Session ${n} complete`;
+  $('cp-title').textContent   = `Session ${n} complete!`;
   $('cp-sub').textContent     = `${cohort ? cohort.label + ' · ' : ''}${page ? page.title : ''}${group ? ' · ' + group.label : ''}`;
   $('cp-pledges').textContent = (last.done || []).length;
   $('cp-of').textContent      = total;
+  $('cp-own').textContent     = '–';
   $('cp-cohorts').addEventListener('click', () => go2(H.cohorts()));
   $('cp-back').addEventListener('click', () => go2(H.sessions(cid)));
+
+  // Up next — straight on to planning the following session.
+  const nextPage = n < SESSION_COUNT ? wpSessionPage(n + 1) : null;
+  if (nextPage) {
+    $('cp-next-num').textContent = n + 1;
+    $('cp-next-title').textContent = `Session ${n + 1} · ${nextPage.title}`;
+    $('cp-next').addEventListener('click', () => go2(H.detail(cid, n + 1)));
+  } else {
+    $('cp-next-num').textContent = '★';
+    $('cp-next-title').textContent = 'That was the final session — the programme is complete for this group.';
+    $('cp-next').textContent = 'All sessions →';
+    $('cp-next').addEventListener('click', () => go2(H.sessions(cid)));
+  }
+
+  // What the group pledged — read back from the run itself (pseudonymous
+  // pledges; the facilitator was in the room, so the text is no surprise).
+  if (!last.runId) { $('cp-bk-card').classList.add('hidden'); return; }
+  let pledges = [];
+  try {
+    const snap = await getDocs(collection(db, 'providers', pid, 'runs', last.runId, 'pledges'));
+    pledges = snap.docs.map(d => d.data());
+  } catch (e) { console.warn('[TFT26] could not read run pledges', e); }
+  if (!$('cp-breakdown')) return;                                  // navigated away meanwhile
+  $('cp-pledges').textContent = pledges.length;
+  const own = pledges.filter(p => p.option === OWN_SUGGESTION_INDEX);
+  $('cp-own').textContent = own.length;
+  if (!pledges.length) { $('cp-breakdown').innerHTML = '<div class="muted" style="font-size:.85rem">No pledges were captured in this run.</div>'; return; }
+
+  const options = (page?.options || []).map((text, i) => ({
+    text, count: pledges.filter(p => p.option === i + 1).length }));
+  if (own.length) options.push({ text: 'Their own idea', count: own.length });
+  options.sort((a, b) => b.count - a.count);
+  const max = Math.max(1, ...options.map(o => o.count));
+  $('cp-breakdown').innerHTML = options.map((o, i) => `
+    <div class="bk ${i === 0 && o.count ? 'top' : ''}">
+      <div class="t">${i === 0 && o.count ? '🏆 ' : ''}${esc(o.text)}</div><div class="c">${o.count}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%" data-w="${Math.round(o.count / max * 100)}"></div></div>
+    </div>`).join('');
+  requestAnimationFrame(() => appEl.querySelectorAll('[data-w]').forEach(b => { b.style.width = b.dataset.w + '%'; }));
+  if (own.length) {
+    $('cp-own-wrap').classList.remove('hidden');
+    $('cp-own-list').innerHTML = own.map(p => `<div>“${esc(p.pledge_text)}”</div>`).join('');
+  }
 }
 
 // ═══ ROUTER ══════════════════════════════════════════════════════════════════

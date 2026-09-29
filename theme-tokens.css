@@ -1,0 +1,156 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   theme-tokens.css — the three proposed visual directions, as tokens only.
+
+   Every page (portal, admin, demo home) and the embeddable widget read these
+   variables; nothing else hard-codes a colour or font. Choosing a direction is
+   one attribute on <html> — data-theme="matchday" | "grow" | "fresh" — set by
+   theme.js. Once RTF × RFL pick a direction and supply brand assets, this file
+   collapses to ONE set of tokens and the switcher goes away.
+
+   --scene-*   the kick scene (canvas) — sky, stand, grass, posts, confetti
+   --stage-*   text drawn over the scene
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── A · MATCHDAY — floodlit stadium, bold condensed type, scoreboard energy ─ */
+:root, [data-theme="matchday"] {
+  --font-body:    'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
+  --display-case: uppercase;
+  --display-track: .01em;
+  --display-weight: 800;
+
+  --bg:        #eef1f7;
+  --surface:   #ffffff;
+  --surface-2: #f5f7fb;
+  --ink:       #0b1433;
+  --muted:     #5b6687;
+  --line:      #dfe3ee;
+  --accent:        #ffcc00;   /* primary action */
+  --accent-ink:    #0b1433;   /* text on the accent */
+  --accent-soft:   #fff5cc;
+  --accent-strong: #13235b;   /* links / emphasis on light */
+  --pop:       #13235b;
+  --ok:        #0f9d58;
+  --warn:      #b45309;
+  --warn-bg:   #fffbeb;
+  --danger:    #dc2626;
+  --radius:    10px;
+  --radius-sm: 6px;
+  --shadow:    0 1px 2px rgba(11,20,51,.08), 0 10px 28px rgba(11,20,51,.08);
+  --chrome-bg: #0b1433;       /* the site header bar */
+  --chrome-ink:#c9d1ea;
+
+  --stage-ink:   #ffffff;
+  --stage-muted: rgba(220,228,255,.72);
+  --stage-chip:  rgba(255,255,255,.12);
+
+  --scene-sky-top:    #040a1c;
+  --scene-sky-bottom: #1b2c63;
+  --scene-light:      rgba(214,230,255,.42);
+  --scene-stand:      #060b1b;
+  --scene-crowd:      #8fa3d9,#ffcc00,#e2e8f0,#ff6b6b,#4cc9f0;
+  --scene-grass-a:    #196633;
+  --scene-grass-b:    #1e773c;
+  --scene-lines:      rgba(255,255,255,.8);
+  --scene-posts:      #ffffff;
+  --scene-pads:       #ffcc00;
+  --scene-glow:       #fff3a0;
+  --scene-tee:        #ff7a1a;
+  --confetti:         #ffcc00,#ffffff,#4cc9f0,#ff6b6b,#3ddc84;
+}
+
+/* ── B · GROW TOGETHER — sunny day, warm and rounded, food-and-planet feel ── */
+[data-theme="grow"] {
+  --font-body:    'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --display-case: none;
+  --display-track: -.01em;
+  --display-weight: 900;
+
+  --bg:        #f7f2e7;
+  --surface:   #fffdf8;
+  --surface-2: #f9f4ea;
+  --ink:       #26301f;
+  --muted:     #6c6a58;
+  --line:      #e9e1cf;
+  --accent:        #2f8f4e;
+  --accent-ink:    #ffffff;
+  --accent-soft:   #e3f2e2;
+  --accent-strong: #226b39;
+  --pop:       #f28c28;
+  --ok:        #2f8f4e;
+  --warn:      #b45309;
+  --warn-bg:   #fff6e5;
+  --danger:    #c2410c;
+  --radius:    20px;
+  --radius-sm: 12px;
+  --shadow:    0 1px 2px rgba(60,50,20,.06), 0 12px 30px rgba(60,50,20,.08);
+  --chrome-bg: #226b39;
+  --chrome-ink:#dcefd9;
+
+  --stage-ink:   #173a24;
+  --stage-muted: rgba(23,58,36,.72);
+  --stage-chip:  rgba(255,255,255,.6);
+
+  --scene-sky-top:    #7cc8f5;
+  --scene-sky-bottom: #e3f4fb;
+  --scene-light:      rgba(255,242,190,.55);
+  --scene-stand:      #3f6b3a;
+  --scene-crowd:      #f28c28,#ffd166,#ffffff,#e76f51,#8fd3ff;
+  --scene-grass-a:    #57b35a;
+  --scene-grass-b:    #62c065;
+  --scene-lines:      rgba(255,255,255,.92);
+  --scene-posts:      #ffffff;
+  --scene-pads:       #f28c28;
+  --scene-glow:       #fff2a8;
+  --scene-tee:        #f28c28;
+  --confetti:         #2f8f4e,#f28c28,#ffd166,#8fd3ff,#e76f51;
+}
+
+/* ── C · FRESH — bright, flat and graphic; one bold accent ────────────────── */
+[data-theme="fresh"] {
+  --font-body:    'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --display-case: none;
+  --display-track: -.02em;
+  --display-weight: 700;
+
+  --bg:        #f4f5fb;
+  --surface:   #ffffff;
+  --surface-2: #f7f8fc;
+  --ink:       #151a2d;
+  --muted:     #6b7190;
+  --line:      #e5e7f1;
+  --accent:        #ff4f5e;
+  --accent-ink:    #ffffff;
+  --accent-soft:   #ffe9eb;
+  --accent-strong: #d42f3e;
+  --pop:       #5b5bf6;
+  --ok:        #12a67a;
+  --warn:      #b45309;
+  --warn-bg:   #fff8eb;
+  --danger:    #d42f3e;
+  --radius:    14px;
+  --radius-sm: 9px;
+  --shadow:    0 1px 2px rgba(21,26,45,.05), 0 10px 26px rgba(21,26,45,.07);
+  --chrome-bg: #151a2d;
+  --chrome-ink:#c7cbe0;
+
+  --stage-ink:   #151a2d;
+  --stage-muted: rgba(21,26,45,.62);
+  --stage-chip:  rgba(255,255,255,.7);
+
+  --scene-sky-top:    #e9ebff;
+  --scene-sky-bottom: #d6dcff;
+  --scene-light:      rgba(91,91,246,.16);
+  --scene-stand:      #c3c9f3;
+  --scene-crowd:      #5b5bf6,#ff4f5e,#ffffff,#151a2d;
+  --scene-grass-a:    #2dbd8c;
+  --scene-grass-b:    #34c995;
+  --scene-lines:      rgba(255,255,255,.95);
+  --scene-posts:      #151a2d;
+  --scene-pads:       #ff4f5e;
+  --scene-glow:       #5b5bf6;
+  --scene-tee:        #ff4f5e;
+  --confetti:         #ff4f5e,#5b5bf6,#2dbd8c,#ffc94d,#151a2d;
+}

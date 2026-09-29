@@ -1,5 +1,5 @@
 /**
- * pledge-widget-app.js — the merged capture form + run counter.
+ * pledge-widget-app.js — the pledge widget: pick a pledge, kick it over the posts.
  *
  * THE PRIVACY CONTRACT THIS WIDGET IMPLEMENTS
  * ───────────────────────────────────────────
@@ -8,22 +8,26 @@
  *   student_ref   pseudonymous, e.g. p_a7f3c21b   -> WRITTEN to the database
  *   display_name  the real name, e.g. "Jack S."   -> RENDERED ON SCREEN ONLY
  *
- * The display name exists so the facilitator can see who is at the device. It
- * is held in a local variable, never persisted, never sent onward. Only the ref
- * reaches Firestore — and firestore.rules independently hard-rejects any write
- * carrying an identifying field, so this is belt AND braces.
+ * The display name exists so the student can see it's their turn. It is held in
+ * a local variable, never persisted, never sent onward, and dropped as soon as
+ * their pledge card has been shown. Only the ref reaches Firestore — and
+ * firestore.rules independently hard-rejects any write carrying an identifying
+ * field, so this is belt AND braces.
  *
  * WHY THE NAME ARRIVES BY postMessage AND NOT IN THE URL
  * URLs end up in browser history, server logs, referrer headers and analytics.
- * Putting a real name in a query string leaks it into all of them. So the URL
- * carries only non-identifying routing (provider / session / run / cohort) and
- * the name is passed in-memory from the embedding page:
+ * So the URL carries only non-identifying routing (provider / session / run /
+ * cohort) and the name is passed in-memory from the embedding page:
  *
  *     iframe.contentWindow.postMessage(
  *       { type:'TFT_SET_STUDENT', student_ref:'p_…', display_name:'Jack S.' }, '*');
  *
- * In production the embedding page is WordPress, which is the only system that
- * knows the mapping. Here it is the emulated WordPress facilitator site.
+ * MESSAGES THE WIDGET SENDS TO ITS PARENT
+ *   TFT_WIDGET_READY     loaded and listening — safe to send the first student
+ *   TFT_PLEDGE_SAVED     the current student's pledge is stored
+ *   TFT_STUDENT_SKIPPED  the current student chose not to pledge
+ *   TFT_READY_FOR_NEXT   "Next player" pressed — send the next student
+ *   TFT_HEIGHT           { height } so the iframe can size itself
  */
 
 import {
@@ -31,6 +35,8 @@ import {
   collection, onSnapshot, increment, serverTimestamp, runTransaction
 } from '../data-layer.js';
 import { sessionByNumber, isValidSession, isStudentRef, OWN_SUGGESTION_INDEX } from './session-config.js';
+import { createKickScene } from './kick-scene.js';
+import { sound, warm, thump, cheer } from './sfx.js';
 
 const app = initializeApp({ projectId: 'tft26-local' });
 const db  = getFirestore(app);
@@ -47,69 +53,93 @@ let student = { ref: null, name: null };
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  count: $('count'), countSub: $('count-sub'), chip: $('session-chip'),
-  pitch: $('pitch'), posts: $('posts'),
+  count: $('count'), countSub: $('count-sub'), chip: $('session-chip'), sound: $('sound'),
+  goal: $('goal'), goalBig: $('goal-big'), goalSmall: $('goal-small'),
+  idleView: $('idle-view'), idleTitle: $('idle-title'), idleSub: $('idle-sub'),
+  formView: $('form-view'), thanksView: $('thanks-view'),
   whoName: $('who-name'), whoRef: $('who-ref'), whoInitial: $('who-initial'),
   question: $('question'), prompt: $('prompt'), pledge: $('pledge'),
-  options: $('options'), ownWrap: $('own-wrap'),
-  charCount: $('char-count'), submit: $('submit'), skip: $('skip'),
-  err: $('err'), formView: $('form-view'), thanksView: $('thanks-view'), next: $('next')
+  options: $('options'), ownWrap: $('own-wrap'), charCount: $('char-count'),
+  submit: $('submit'), submitLabel: $('submit-label'), skip: $('skip'), hint: $('hint'), err: $('err'),
+  cardWho: $('card-who'), cardText: $('card-text'), thanksTitle: $('thanks-title'),
+  thanksSub: $('thanks-sub'), next: $('next')
 };
 
-// ─── Pledge selection state ──────────────────────────────────────────────────
 let sessionOptions = [];        // the 5 predefined option strings for this session
 let chosenOption = null;        // 1..6 (6 = own suggestion)
+let kicking = false;            // a pledge is being saved / celebrated
 
-// ─── Counter ─────────────────────────────────────────────────────────────────
+// ─── The kick scene ──────────────────────────────────────────────────────────
+let onGoalOnce = null;
+const scene = createKickScene($('scene'), {
+  ballSrc: 'assets/rugby-ball@2x.png',
+  onContact: () => thump(),
+  onGoal: ({ big }) => {
+    cheer(big);
+    showGoalBanner(big);
+    releaseCount();
+    onGoalOnce?.(); onGoalOnce = null;
+  }
+});
+window.addEventListener('tft-theme', () => scene.refresh());
+window.__kick = scene;                              // dev: __kick.preview(ms)
+
+const CALLS = ['Converted!', 'Split the posts!', 'Right down the middle!', 'What a kick!', 'Over it goes!'];
+function showGoalBanner(big) {
+  // Called just before the held score is released, so heldCount is the new
+  // total if the database has already confirmed it.
+  const n = heldCount ?? pledgeCount + 1;
+  els.goalBig.textContent   = big ? `${n} pledges!` : CALLS[Math.floor(Math.random() * CALLS.length)];
+  els.goalSmall.textContent = big ? 'Milestone!' : '+1 pledge';
+  els.goal.classList.remove('show'); void els.goal.offsetWidth; els.goal.classList.add('show');
+}
+
+// ─── Score ───────────────────────────────────────────────────────────────────
+// The run's pledge_count (from Firestore) owns the number. While a kick is in
+// the air the new value is held back, so the score ticks over at the exact
+// moment the ball clears the crossbar.
 let pledgeCount = 0;
+let holding = false, heldCount = null;
 
-/**
- * The single token: the rugby-ball artwork (assets/rugby-ball.png, 96px; hi-res source in design/).
- * To swap it, change TOKEN_SRC — nothing else references the file.
- * Set it to null to fall back to the inline placeholder SVG in the HTML.
- */
-const TOKEN_SRC = 'assets/rugby-ball.png';
-
-function tokenSvg(cls) {
-  return TOKEN_SRC
-    ? `<img class="${cls}" src="${TOKEN_SRC}" alt="">`
-    : `<svg class="${cls}" viewBox="0 0 40 40"><use href="#tft-token"/></svg>`;
-}
-
-function renderCounter(n, { animate = false } = {}) {
+function setCount(n, animate) {
+  if (n === pledgeCount && els.count.textContent.trim() === String(n)) return;
   pledgeCount = n;
-  els.count.textContent = n;
-  els.countSub.textContent = n === 0 ? 'No pledges yet'
-                           : n === 1 ? '1 pledge recorded'
-                           : `${n} pledges recorded`;
-
-  if (animate) {
-    els.count.classList.add('bump');
-    setTimeout(() => els.count.classList.remove('bump'), 320);
-  }
+  if (!animate) { els.count.innerHTML = `<span>${n}</span>`; return; }
+  const old = els.count.querySelector('span:last-child');
+  if (old) { old.className = 'out'; setTimeout(() => old.remove(), 460); }
+  const s = document.createElement('span');
+  s.className = 'in'; s.textContent = n;
+  els.count.appendChild(s);
+}
+function onRunCount(n) {
+  if (holding) { heldCount = n; return; }
+  setCount(n, n > pledgeCount);
+}
+function releaseCount() {
+  holding = false;
+  if (heldCount != null) { setCount(heldCount, true); heldCount = null; }
 }
 
-/**
- * Kick a ball over the posts — a conversion. The single visual reward for a
- * pledge landing. The ball arcs up and over the crossbar; the posts flash as it
- * passes through them.
- */
-function kickBall() {
-  const pitch = els.pitch;
-  if (!pitch) return;
-  const el = document.createElement('div');
-  el.className = 'kick';
-  el.innerHTML = `<div class="arc">${tokenSvg('ball')}</div>`;
-  pitch.appendChild(el);
-
-  // Flash the posts around the point the ball crosses the crossbar (~mid-arc).
-  const posts = els.posts;
-  if (posts) {
-    setTimeout(() => posts.classList.add('flash'), 430);
-    setTimeout(() => posts.classList.remove('flash'), 720);
-  }
-  setTimeout(() => el.remove(), 1250);
+function watchRun() {
+  if (!PROVIDER || !RUN_ID) return;
+  onSnapshot(doc(db, 'providers', PROVIDER, 'runs', RUN_ID), (snap) => {
+    if (snap.exists()) onRunCount(snap.data().pledge_count || 0);
+  });
 }
+
+/** The programme-wide total (public, anonymous aggregate) — "you're part of something". */
+function watchProgramme() {
+  onSnapshot(doc(db, 'public', 'session-totals'), (snap) => {
+    const n = snap.exists() ? (snap.data().total_pledges || 0) : 0;
+    els.countSub.textContent = n ? `${n.toLocaleString('en-GB')} across the whole programme` : 'Kick-off!';
+  }, () => {});
+}
+
+// ─── Sound toggle (per device) ───────────────────────────────────────────────
+function paintSound() { els.sound.setAttribute('aria-pressed', sound.on ? 'true' : 'false');
+                        els.sound.title = sound.on ? 'Sound on — click to mute' : 'Sound off — click to unmute'; }
+els.sound.addEventListener('click', () => { sound.on = !sound.on; paintSound(); if (sound.on) warm(); });
+paintSound();
 
 // ─── Session content ─────────────────────────────────────────────────────────
 async function loadSession() {
@@ -126,19 +156,16 @@ async function loadSession() {
   renderOptions();
 }
 
-/**
- * Render the five predefined pledges plus the sixth "own idea" option. Choosing
- * the sixth reveals the free-text box; choosing any other hides it.
- */
+const TICK = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
 function renderOptions() {
-  const rows = sessionOptions.map((text, i) => {
-    const n = i + 1;
-    return `<button type="button" class="opt" role="radio" aria-checked="false" data-opt="${n}">
-        <span class="n">${n}</span><span class="txt">${escapeHtml(text)}</span>
-      </button>`;
-  });
-  rows.push(`<button type="button" class="opt own" role="radio" aria-checked="false" data-opt="${OWN_SUGGESTION_INDEX}">
-      <span class="n">${OWN_SUGGESTION_INDEX}</span><span class="txt">My own idea…</span>
+  const rows = sessionOptions.map((text, i) => `
+    <button type="button" class="opt" role="radio" aria-checked="false" data-opt="${i + 1}">
+      <span class="n">${i + 1}</span><span class="txt">${escapeHtml(text)}</span>${TICK}
+    </button>`);
+  rows.push(`
+    <button type="button" class="opt own" role="radio" aria-checked="false" data-opt="${OWN_SUGGESTION_INDEX}">
+      <span class="n">${OWN_SUGGESTION_INDEX}</span><span class="txt">My own idea…</span>${TICK}
     </button>`);
   els.options.innerHTML = rows.join('');
   els.options.querySelectorAll('[data-opt]').forEach(b =>
@@ -146,6 +173,7 @@ function renderOptions() {
 }
 
 function chooseOption(n) {
+  if (kicking) return;
   chosenOption = n;
   els.options.querySelectorAll('.opt').forEach(b => {
     const on = Number(b.dataset.opt) === n;
@@ -154,7 +182,7 @@ function chooseOption(n) {
   });
   const own = n === OWN_SUGGESTION_INDEX;
   els.ownWrap.classList.toggle('hidden', !own);
-  if (own) { els.pledge.focus(); }
+  if (own) els.pledge.focus();
   updateSubmitState();
 }
 
@@ -162,51 +190,64 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
+const firstName = (s) => (s || '').trim().split(/\s+/)[0] || '';
 
-// ─── Live run counter ────────────────────────────────────────────────────────
-function watchRun() {
-  if (!PROVIDER || !RUN_ID) return;
-  onSnapshot(doc(db, 'providers', PROVIDER, 'runs', RUN_ID), (snap) => {
-    if (!snap.exists()) return;
-    const n = snap.data().pledge_count || 0;
-    if (n !== pledgeCount) renderCounter(n, { animate: n > pledgeCount });
-  });
+// ─── Views ───────────────────────────────────────────────────────────────────
+function showView(which) {
+  for (const [k, el] of [['idle', els.idleView], ['form', els.formView], ['thanks', els.thanksView]]) {
+    const on = k === which;
+    el.classList.toggle('hidden', !on);
+    if (on) { el.classList.remove('view'); void el.offsetWidth; el.classList.add('view'); }
+  }
 }
 
 // ─── Student handoff from the embedding page ─────────────────────────────────
 function setStudent(ref, displayName) {
+  if (kicking) return;                          // never swap players mid-kick
   if (!isStudentRef(ref)) {
+    showView('form');
     showError('Invalid student reference — expected the p_… pseudonymous form.');
     return;
   }
   student = { ref, name: displayName || null };
-  els.whoName.textContent    = displayName || 'Student';
+  els.idleTitle.textContent  = 'Ready for the next player';
+  els.idleSub.textContent    = 'Your facilitator will choose who’s up next.';
+  els.whoName.textContent    = displayName || 'Player';
   els.whoRef.textContent     = ref;
   els.whoInitial.textContent = (displayName || '?').trim().charAt(0).toUpperCase();
   resetSelection();
-  showForm();
+  clearError();
+  showView('form');
 }
 
-/** Clear the option choice and free-text box for the next student. */
 function resetSelection() {
   chosenOption = null;
   els.pledge.value = '';
   els.ownWrap.classList.add('hidden');
   els.options.querySelectorAll('.opt').forEach(b => {
-    b.classList.remove('sel');
+    b.classList.remove('sel'); b.disabled = false;
     b.setAttribute('aria-checked', 'false');
   });
   updateCharCount();
 }
 
+/** Forget the student: memory AND DOM. */
+function forgetStudent() {
+  student = { ref: null, name: null };
+  els.whoName.textContent = 'Player';
+  els.whoRef.textContent = '—';
+  els.whoInitial.textContent = '?';
+}
+
 window.addEventListener('message', (e) => {
   const d = e.data;
-  if (!d || d.type !== 'TFT_SET_STUDENT') return;
-  setStudent(d.student_ref, d.display_name);
+  if (d?.type === 'TFT_SET_STUDENT') setStudent(d.student_ref, d.display_name);
+  else if (d?.type === 'TFT_ALL_DONE' && !kicking && els.thanksView.classList.contains('hidden')) {
+    els.idleTitle.textContent = 'That’s the whole team!';
+    els.idleSub.textContent   = 'Every player has had their turn. Your facilitator will wrap up.';
+    showView('idle');
+  }
 });
-
-// A ref in the URL is acceptable (it is pseudonymous); a NAME never is.
-if (qs.get('ref')) setStudent(qs.get('ref'), null);
 
 // ─── Form behaviour ──────────────────────────────────────────────────────────
 function updateCharCount() {
@@ -223,59 +264,54 @@ function updateCharCount() {
 function updateSubmitState() {
   const own = chosenOption === OWN_SUGGESTION_INDEX;
   const textLen = els.pledge.value.trim().length;
-  const ok = !!student.ref && chosenOption != null
+  const ok = !!student.ref && chosenOption != null && !kicking
           && (!own || (textLen > 0 && els.pledge.value.length <= 1000));
   els.submit.disabled = !ok;
+  els.hint.textContent = chosenOption == null ? 'Pick one to kick for goal'
+                       : own && textLen === 0 ? 'Write your idea, then kick for goal'
+                       : 'Ready? Take the kick!';
 }
 els.pledge.addEventListener('input', updateCharCount);
 
 function showError(msg) { els.err.textContent = msg; els.err.classList.remove('hidden'); }
 function clearError()   { els.err.classList.add('hidden'); }
-function showForm()   { els.formView.classList.remove('hidden'); els.thanksView.classList.add('hidden'); }
-function showThanks() { els.formView.classList.add('hidden'); els.thanksView.classList.remove('hidden'); }
+
+// Number keys pick an option; Enter kicks. (Handy on a laptop at the front.)
+document.addEventListener('keydown', (e) => {
+  if (els.formView.classList.contains('hidden') || kicking) return;
+  if (e.target === els.pledge) return;
+  const n = Number(e.key);
+  if (n >= 1 && n <= OWN_SUGGESTION_INDEX && n <= sessionOptions.length + 1) {
+    chooseOption(n === sessionOptions.length + 1 ? OWN_SUGGESTION_INDEX : n);
+  } else if (e.key === 'Enter' && !els.submit.disabled) {
+    submitPledge();
+  }
+});
 
 /**
- * Write the pledge.
- *
- * Note what goes into the document: student_ref, session, cohort_id, text,
- * status, timestamp. There is no name field — and could not be, because
- * firestore.rules would reject the write.
+ * Save the pledge. Note what goes into the document: student_ref, session,
+ * cohort_id, option, text, status, timestamp. There is no name field — and
+ * could not be, because firestore.rules would reject the write.
  */
-async function submitPledge() {
-  clearError();
-  if (!student.ref || chosenOption == null) return;
-  if (!PROVIDER || !RUN_ID) { showError('No active run — start a session from the facilitator site.'); return; }
+async function savePledge(text) {
+  await addDoc(collection(db, 'providers', PROVIDER, 'runs', RUN_ID, 'pledges'), {
+    student_ref: student.ref,
+    session:     SESSION,
+    cohort_id:   COHORT_ID,
+    option:      chosenOption,     // 1-5 predefined, 6 = own suggestion
+    pledge_text: text,
+    status:      'pending',
+    created_at:  serverTimestamp()
+  });
+}
 
-  // Resolve the stored text. Options 1-5 store the canonical option string
-  // (denormalised so reporting/export needs no lookup); option 6 stores the
-  // student's own words.
-  const own = chosenOption === OWN_SUGGESTION_INDEX;
-  const text = own ? els.pledge.value.trim() : (sessionOptions[chosenOption - 1] || '');
-  if (!text) return;
-
-  els.submit.disabled = true;
-  els.submit.textContent = 'Submitting…';
-
-  try {
-    await addDoc(collection(db, 'providers', PROVIDER, 'runs', RUN_ID, 'pledges'), {
-      student_ref: student.ref,
-      session:     SESSION,
-      cohort_id:   COHORT_ID,
-      option:      chosenOption,     // 1-5 predefined, 6 = own suggestion
-      pledge_text: text,
-      status:      'pending',        // moderation workflow still to be decided
-      created_at:  serverTimestamp()
-    });
-
-    // Roll the counters up: run -> provider session_stats -> all-provider totals.
-    await updateDoc(doc(db, 'providers', PROVIDER, 'runs', RUN_ID), {
-      pledge_count: increment(1)
-    });
-
-    // session_stats is a NESTED map, so increment() cannot be used directly on
-    // it — a merge write would replace the whole map and wipe the other five
-    // sessions. Read-modify-write inside a transaction instead.
-    await runTransaction(db, async (tx) => {
+/** Roll the counters up: run → provider session_stats → all-provider totals. */
+function rollUp() {
+  return Promise.all([
+    updateDoc(doc(db, 'providers', PROVIDER, 'runs', RUN_ID), { pledge_count: increment(1) }),
+    // session_stats is a NESTED map, so increment() cannot be used on it — a
+    // merge write would replace the whole map. Read-modify-write in a transaction.
+    runTransaction(db, async (tx) => {
       const ref  = doc(db, 'providers', PROVIDER);
       const snap = await tx.get(ref);
       const stats = (snap.exists() ? snap.data().session_stats : null) || {};
@@ -285,61 +321,91 @@ async function submitPledge() {
         session_stats: { ...stats, [key]: { ...cur, pledges: (cur.pledges || 0) + 1 } },
         updated_at: serverTimestamp()
       }, { merge: true });
-    });
-
-    // These ARE flat top-level fields, so increment() is correct here.
-    await setDoc(doc(db, 'public', 'session-totals'), {
+    }),
+    // Flat top-level fields, so increment() is correct here.
+    setDoc(doc(db, 'public', 'session-totals'), {
       ['s' + SESSION + '_pledges']: increment(1),
       total_pledges: increment(1)
-    }, { merge: true });
+    }, { merge: true })
+  ]);
+}
 
-    // Kick the ball over the posts for immediate feedback, but do NOT bump the
-    // number here — the run's onSnapshot listener owns the count. Incrementing
-    // in both places double-counts every pledge.
-    kickBall();
-    document.getElementById('thanks-sub').textContent =
-      student.name ? `Thanks ${student.name.split(' ')[0]} — pass the device to the next student.`
-                   : 'Pass the device to the next student.';
-    showThanks();
+async function submitPledge() {
+  clearError();
+  if (!student.ref || chosenOption == null || kicking) return;
+  if (!PROVIDER || !RUN_ID) { showError('No active run — start a session from the facilitator site.'); return; }
 
-    // Drop the name from memory AND from the DOM the moment it stops being
-    // needed. It has already been read into `thanks-sub` above; leaving it
-    // sitting in the markup until the next click serves no purpose.
-    student = { ref: null, name: null };
-    clearWhoPanel();
-    notifyParent('TFT_PLEDGE_SAVED');
+  // Options 1-5 store the canonical option string (so reporting needs no
+  // lookup); option 6 stores the student's own words.
+  const own  = chosenOption === OWN_SUGGESTION_INDEX;
+  const text = own ? els.pledge.value.trim() : (sessionOptions[chosenOption - 1] || '');
+  if (!text) return;
+
+  kicking = true;
+  warm();                                              // unlock audio on this click
+  els.options.querySelectorAll('.opt').forEach(b => { b.disabled = true; });
+  els.submit.disabled = true;
+  els.submitLabel.textContent = 'Lining it up…';
+
+  try {
+    await savePledge(text);                            // the pledge itself is safe
   } catch (err) {
     console.error('[TFT26] Pledge submit failed:', err);
-    showError('Could not save that pledge. Please try again.');
-  } finally {
-    els.submit.disabled = false;
-    els.submit.textContent = 'Submit pledge';
+    kicking = false;
+    els.options.querySelectorAll('.opt').forEach(b => { b.disabled = false; });
+    els.submitLabel.textContent = 'Make my pledge';
+    updateSubmitState();
+    showError('Could not save that pledge — check the connection and try again.');
+    return;
   }
+
+  // Stored — tell the embedding page straight away, so the roster is right even
+  // if the page is refreshed mid-kick. The counters roll up behind.
+  notifyParent('TFT_PLEDGE_SAVED');
+
+  // Take the kick. The score holds until the ball clears the bar.
+  const big = (pledgeCount + 1) % 10 === 0;
+  holding = true;
+  const rolled = rollUp().catch(err => console.error('[TFT26] Counter roll-up failed:', err));
+  const who = firstName(student.name);
+  onGoalOnce = () => {
+    setTimeout(() => {
+      els.cardWho.textContent   = who ? `${who}’s pledge` : 'Your pledge';
+      els.cardText.textContent  = text;
+      els.thanksTitle.textContent = big ? 'Milestone kick!' : who ? `Great kick, ${who}!` : 'Great kick!';
+      els.thanksSub.textContent = 'Pass the device back to your facilitator.';
+      showView('thanks');
+      // Drop the name from memory AND the turn panel now it has been used.
+      forgetStudent();
+      els.submitLabel.textContent = 'Make my pledge';
+      kicking = false;
+    }, 350);
+  };
+  scene.kick({ big });
 }
 
 els.submit.addEventListener('click', submitPledge);
-els.skip.addEventListener('click', () => notifyParent('TFT_STUDENT_SKIPPED'));
-function clearWhoPanel() {
-  els.whoName.textContent    = 'No student selected';
-  els.whoRef.textContent     = '—';
-  els.whoInitial.textContent = '?';
-}
+els.skip.addEventListener('click', () => {
+  if (kicking) return;
+  forgetStudent(); resetSelection(); showView('idle');
+  notifyParent('TFT_STUDENT_SKIPPED');
+});
 
 els.next.addEventListener('click', () => {
-  clearWhoPanel();
+  els.cardWho.textContent = ''; els.cardText.textContent = '';
   resetSelection();
-  showForm();
+  showView('idle');
   notifyParent('TFT_READY_FOR_NEXT');
 });
 
-function notifyParent(type) {
-  if (window.parent !== window) window.parent.postMessage({ type }, '*');
+function notifyParent(type, extra = {}) {
+  if (window.parent !== window) window.parent.postMessage({ type, ...extra }, '*');
 }
 
-// Keep the embedding iframe sized to content (same contract JOM used).
+// Keep the embedding iframe sized to content.
 function notifyHeight() {
   const h = document.querySelector('.widget').getBoundingClientRect().height + 8;
-  if (window.parent !== window) window.parent.postMessage({ type: 'TFT_HEIGHT', height: h }, '*');
+  notifyParent('TFT_HEIGHT', { height: h });
 }
 new ResizeObserver(notifyHeight).observe(document.querySelector('.widget'));
 
@@ -347,14 +413,24 @@ new ResizeObserver(notifyHeight).observe(document.querySelector('.widget'));
 (async function init() {
   await loadSession();
   if (PROVIDER && RUN_ID) {
-    const snap = await getDoc(doc(db, 'providers', PROVIDER, 'runs', RUN_ID));
-    renderCounter(snap.exists() ? (snap.data().pledge_count || 0) : 0);
+    try {
+      const snap = await getDoc(doc(db, 'providers', PROVIDER, 'runs', RUN_ID));
+      setCount(snap.exists() ? (snap.data().pledge_count || 0) : 0, false);
+    } catch { setCount(0, false); }
     watchRun();
   } else {
-    renderCounter(0);
+    setCount(0, false);
+    els.idleTitle.textContent = 'Pledge widget';
+    els.idleSub.textContent   = 'Start a session from the facilitator portal to collect pledges here.';
   }
+  watchProgramme();
   updateCharCount();
+
+  // A ref in the URL is acceptable (it is pseudonymous); a NAME never is.
+  if (qs.get('ref')) setStudent(qs.get('ref'), null);
+
   notifyHeight();
+  notifyParent('TFT_WIDGET_READY');
   console.log('[TFT26] Pledge widget ready —',
     { provider: PROVIDER, session: SESSION, run: RUN_ID, cohort: COHORT_ID });
 })();

@@ -35,6 +35,7 @@
  */
 
 import { mintStudentRef, SESSIONS, EXPECTED_GROUP_SIZE, EXPECTED_GROUPS } from './public_widget/session-config.js';
+import { buildDemoProgramme, DEMO_SEED_VERSION } from './demo-data.js';
 
 const LS_WP      = 'tft26_wp_emulator_v1';
 const LS_WP_AUTH = 'tft26_wp_session_v1';
@@ -65,9 +66,33 @@ const WP_USERS = [
 
 (function seed() {
   const s = load();
-  if (s.__seeded) return;
-  // rosters[providerId] = { cohorts: [ {cohort_id, label, groups[], students[]} ] }
-  s.rosters = {};
+  if (s.__seeded && s.__roster_v === DEMO_SEED_VERSION) return;
+
+  // Demo rosters for the providers with a login, from the shared demo programme
+  // (demo-data.js) — the same student refs the Firebase-side seed wrote pledges
+  // for. Re-applied whenever DEMO_SEED_VERSION changes: demo cohorts are replaced
+  // by cohort_id, and any cohort the visitor created themselves is kept.
+  if (s.__roster_v !== DEMO_SEED_VERSION) {
+    // rosters[providerId] = { cohorts: [ {cohort_id, label, groups[], students[]} ] }
+    if (!s.rosters) s.rosters = {};
+    const prog = buildDemoProgramme(Math.floor(Date.now() / 1000));
+    for (const p of prog.providers.filter(x => x.login)) {
+      const demoIds = new Set(p.cohorts.map(c => c.cohort_id));
+      const own = providerCohorts(s, p.id).filter(c => !demoIds.has(c.cohort_id));
+      s.rosters[p.id].cohorts = [
+        ...p.cohorts.map(c => ({
+          cohort_id: c.cohort_id,
+          label: c.label,
+          groups: c.groups.map(g => ({ id: g.id, label: g.label })),
+          students: c.students.map(st => ({ student_ref: st.student_ref, display_name: st.display_name, group_id: st.group_id }))
+        })),
+        ...own
+      ];
+    }
+    s.__roster_v = DEMO_SEED_VERSION;
+  }
+
+  if (s.__seeded) { save(s); return; }
   s.session_pages = SESSIONS.map(x => ({
     n: x.n,
     title: x.title,
@@ -103,7 +128,7 @@ export function wpCurrentUser() {
   return u ? publicUser(u) : null;
 }
 export function wpSignOut() { localStorage.removeItem(LS_WP_AUTH); }
-export function wpAccounts() { return WP_USERS.map(u => ({ email: u.email, password: u.password, provider: u.provider_name })); }
+export function wpAccounts() { return WP_USERS.map(u => ({ email: u.email, password: u.password, provider: u.provider_name, display_name: u.display_name })); }
 function publicUser(u) {
   return { email: u.email, display_name: u.display_name, provider_id: u.provider_id, provider_name: u.provider_name };
 }

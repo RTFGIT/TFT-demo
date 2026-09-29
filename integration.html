@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — How the widget embeds</title>
 <link rel="stylesheet" href="demo-theme.css">
+<script src="theme.js"></script>
 <style>
   /* Three-layer diagram */
   .layers { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.5rem; align-items:stretch; }
@@ -155,7 +156,8 @@ frame.contentWindow.postMessage({
 }, <span class="g">'https://rtfgit.github.io'</span>);
 
 <span class="m">// messages the widget posts back:</span>
-<span class="m">//   TFT_PLEDGE_SAVED · TFT_STUDENT_SKIPPED · TFT_READY_FOR_NEXT · TFT_HEIGHT</span></pre>
+<span class="m">//   TFT_WIDGET_READY · TFT_PLEDGE_SAVED · TFT_STUDENT_SKIPPED · TFT_READY_FOR_NEXT · TFT_HEIGHT</span>
+<span class="m">// and one more the page may send:  TFT_ALL_DONE  (everyone has had a turn)</span></pre>
 
   <h2 class="section">What deploys where</h2>
   <table>
@@ -196,22 +198,18 @@ frame.contentWindow.postMessage({
   // mode_once=sandbox: this explainer always runs offline, whatever mode the visitor chose.
   frame.src = 'public_widget/pledge-widget.html?provider=demo-college&session=1&run=embed-demo&cohort=demo&mode_once=sandbox';
 
-  frame.addEventListener('load', () => {
-    // Hand the widget a demo student — exactly as a WordPress page would.
-    setTimeout(() => {
-      frame.contentWindow.postMessage({
-        type: 'TFT_SET_STUDENT', student_ref: 'p_demo1234', display_name: 'Demo Student'
-      }, '*');
-      push('→ page sent  TFT_SET_STUDENT  { student_ref: "p_demo1234", display_name: "Demo Student" }');
-    }, 300);
-  });
-
   window.addEventListener('message', (e) => {
     const t = e.data?.type;
     if (!t || !t.startsWith('TFT_')) return;
     if (t === 'TFT_HEIGHT') { frame.style.height = e.data.height + 'px'; return; }
     push('← widget sent  ' + t);
-    if (t === 'TFT_READY_FOR_NEXT') {
+    if (t === 'TFT_WIDGET_READY') {
+      // Hand the widget a demo student — exactly as a WordPress page would.
+      frame.contentWindow.postMessage({
+        type: 'TFT_SET_STUDENT', student_ref: 'p_demo1234', display_name: 'Demo Student'
+      }, '*');
+      push('→ page sent  TFT_SET_STUDENT  { student_ref: "p_demo1234", display_name: "Demo Student" }');
+    } else if (t === 'TFT_READY_FOR_NEXT') {
       frame.contentWindow.postMessage({ type: 'TFT_SET_STUDENT', student_ref: 'p_demo1234', display_name: 'Demo Student' }, '*');
       push('→ page sent  TFT_SET_STUDENT  (next student)');
     }

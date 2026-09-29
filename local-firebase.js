@@ -20,6 +20,7 @@
  */
 
 import { SESSIONS } from './public_widget/session-config.js';
+import { buildDemoProgramme, DEMO_SEED_VERSION } from './demo-data.js';
 
 const LS_DB   = 'tft26_localdb_v1';
 const LS_AUTH = 'tft26_localauth_v1';
@@ -242,12 +243,19 @@ export function onAuthStateChanged(auth, cb) {
   return () => { const i = authListeners.indexOf(cb); if (i >= 0) authListeners.splice(i, 1); };
 }
 
-// ── First-run seed data (so widgets render meaningfully offline) ─────────────
+// ── Seed data: the shared "lived-in programme" (see demo-data.js) ───────────
+// The same generator seeds the Live project (scripts/live/seed.mjs) and the
+// WordPress rosters (wp-emulator.js), so every mode shows the same programme and
+// the roster's student refs match the pledges here. Only pseudonymous data is
+// written to this store — display names stay on the WordPress side.
+// Re-seeds (wiping this disposable store) whenever DEMO_SEED_VERSION changes.
 (function seedIfEmpty() {
-  const store = loadStore();
-  if (store.__seeded) return;
+  if (loadStore().__seed_v === DEMO_SEED_VERSION) return;
+  const store = {};                                   // sandbox data is disposable
   const now = Math.floor(Date.now() / 1000);
-  const ts  = (agoSecs) => ({ seconds: now - agoSecs, nanoseconds: 0 });
+  // demo-data.js speaks epoch seconds; the shim stores Firestore Timestamp shape.
+  const ts = (secs) => (secs == null ? null : { seconds: secs, nanoseconds: 0 });
+  const prog = buildDemoProgramme(now);
 
   // ── The 6 session definitions (admin-editable in production) ───────────────
   // Seeded from the single source of truth in session-config.js so the stored
@@ -267,112 +275,69 @@ export function onAuthStateChanged(auth, cb) {
   });
 
   // ── Cross-provider aggregate: the "All Providers" per-session totals ───────
-  store['public/session-totals'] = {
-    s1_runs: 3, s1_pledges: 61, s2_runs: 2, s2_pledges: 44, s3_runs: 1, s3_pledges: 18,
-    s4_runs: 0, s4_pledges: 0,  s5_runs: 0, s5_pledges: 0,  s6_runs: 0, s6_pledges: 0,
-    total_pledges: 123
-  };
+  store['public/session-totals'] = { ...prog.totals };
   store['public/banned-words'] = { words: [] };
 
-  // ── Demo provider — matches the seeded `facilitator@local` account whose
-  //    custom claim is `provider: 'demo-college'`. NOT public; owner + admin.
-  store['providers/demo-college'] = {
-    name: 'Demo College',
-    active: true,
-    max_students: 96,          // soft cap — warns, never blocks
-    session_stats: {
-      s1: { runs: 2, pledges: 41, last_run_at: ts(86400 * 14) },
-      s2: { runs: 1, pledges: 22, last_run_at: ts(86400 * 7) },
-      s3: { runs: 1, pledges: 18, last_run_at: ts(3600) },
-      s4: { runs: 0, pledges: 0,  last_run_at: null },
-      s5: { runs: 0, pledges: 0,  last_run_at: null },
-      s6: { runs: 0, pledges: 0,  last_run_at: null }
-    },
-    created_at: ts(86400 * 30),
-    updated_at: ts(3600)
-  };
-  // Adult contact details live OUTSIDE the provider doc so a facilitator's own
-  // read of /providers/{id} never returns them. Admin-only.
-  store['providers_private/demo-college'] = {
-    contact_name: 'Alex Facilitator',
-    contact_email: 'lead@democollege.ac.uk',
-    registered_at: ts(86400 * 30)
-  };
+  for (const p of prog.providers) {
+    const base = 'providers/' + p.id;
+    // Provider doc — NOT public; owner + admin. `demo-college` / `demo-academy`
+    // match the seeded facilitator accounts' `provider` custom claims.
+    const session_stats = {};
+    for (const [k, v] of Object.entries(p.session_stats)) {
+      session_stats[k] = { runs: v.runs, pledges: v.pledges, last_run_at: ts(v.last_run_at) };
+    }
+    store[base] = {
+      name: p.name,
+      active: true,
+      max_students: 96,          // soft cap — warns, never blocks
+      demo: true,
+      session_stats,
+      created_at: ts(p.created_at),
+      updated_at: ts(p.updated_at)
+    };
+    // Adult contact details live OUTSIDE the provider doc so a facilitator's own
+    // read of /providers/{id} never returns them. Admin-only.
+    store['providers_private/' + p.id] = {
+      contact_name: p.contact_name,
+      contact_email: p.contact_email,
+      registered_at: ts(p.created_at),
+      demo: true
+    };
 
-  // A second provider, so "All Providers" totals have something to aggregate.
-  store['providers/demo-academy'] = {
-    name: 'Demo Academy',
-    active: true,
-    max_students: 96,
-    session_stats: {
-      s1: { runs: 1, pledges: 20, last_run_at: ts(86400 * 3) },
-      s2: { runs: 1, pledges: 22, last_run_at: ts(86400 * 2) },
-      s3: { runs: 0, pledges: 0, last_run_at: null },
-      s4: { runs: 0, pledges: 0, last_run_at: null },
-      s5: { runs: 0, pledges: 0, last_run_at: null },
-      s6: { runs: 0, pledges: 0, last_run_at: null }
-    },
-    created_at: ts(86400 * 20),
-    updated_at: ts(86400 * 2)
-  };
-  store['providers_private/demo-academy'] = {
-    contact_name: 'Sam Coordinator',
-    contact_email: 'programme@demoacademy.ac.uk',
-    registered_at: ts(86400 * 20)
-  };
+    // Cohorts → groups → pseudonymous student slots. Names are NOT copied:
+    // firestore.rules hard-rejects identifying fields in production.
+    for (const c of p.cohorts) {
+      const cbase = base + '/cohorts/' + c.cohort_id;
+      store[cbase] = { label: c.label, active: true, student_count: c.students.length };
+      for (const g of c.groups) {
+        store[cbase + '/groups/' + g.id] = {
+          label: g.label, size: c.students.filter(s => s.group_id === g.id).length
+        };
+      }
+      for (const s of c.students) {
+        store[cbase + '/students/' + s.student_ref] = { group_id: s.group_id, active: true, created_at: ts(c.created_at) };
+      }
+    }
 
-  // ── Cohort — one intake. Re-running the programme next year creates a NEW
-  //    cohort with a fresh ID pool, so a student_ref always means one human.
-  store['providers/demo-college/cohorts/intake-2026'] = {
-    label: '2026/27 intake', active: true, student_count: 3
-  };
-  // Groups mirror the WordPress-side roster structure. A run is one session
-  // delivered to ONE group, which is why the same session can run 4×.
-  store['providers/demo-college/cohorts/intake-2026/groups/g1'] = { label: 'Group 1' };
-  store['providers/demo-college/cohorts/intake-2026/groups/g2'] = { label: 'Group 2' };
-  // Student slots: pseudonymous only. The real names live in WordPress and are
-  // never written here — firestore.rules hard-rejects identifying fields.
-  store['providers/demo-college/cohorts/intake-2026/students/p_a7f3c21b'] = { group: 1, active: true, created_at: ts(86400 * 21) };
-  store['providers/demo-college/cohorts/intake-2026/students/p_4e9d0f76'] = { group: 1, active: true, created_at: ts(86400 * 21) };
-  store['providers/demo-college/cohorts/intake-2026/students/p_b2c85a14'] = { group: 2, active: true, created_at: ts(86400 * 21) };
-
-  // ── Runs — one delivery of one session to one GROUP. Session 1 was delivered
-  //    twice, to two different groups: the normal case for a provider running
-  //    the same session with each of their groups in turn.
-  store['providers/demo-college/runs/run-s1-a'] = {
-    session: 1, cohort_id: 'intake-2026', group_id: 'g1', status: 'closed',
-    pledge_count: 21, started_at: ts(86400 * 21), ended_at: ts(86400 * 21 - 3600)
-  };
-  store['providers/demo-college/runs/run-s1-b'] = {
-    session: 1, cohort_id: 'intake-2026', group_id: 'g2', status: 'closed',
-    pledge_count: 20, started_at: ts(86400 * 14), ended_at: ts(86400 * 14 - 3600)
-  };
-  store['providers/demo-college/runs/run-s3-a'] = {
-    session: 3, cohort_id: 'intake-2026', group_id: 'g1', status: 'open',
-    pledge_count: 3, started_at: ts(3600), ended_at: null
-  };
-
-  // ── Pledges — the captured data. student_ref only; never a name.
-  //    `option` 1-5 is a predefined choice (pledge_text is the canonical option
-  //    text); option 6 is the student's own free-text suggestion.
-  const s3opts = SESSIONS[2].options;   // session 3 predefined options
-  store['providers/demo-college/runs/run-s3-a/pledges/pl1'] = {
-    student_ref: 'p_a7f3c21b', session: 3, cohort_id: 'intake-2026',
-    option: 1, pledge_text: s3opts[0],
-    status: 'approved', created_at: ts(3400)
-  };
-  store['providers/demo-college/runs/run-s3-a/pledges/pl2'] = {
-    student_ref: 'p_4e9d0f76', session: 3, cohort_id: 'intake-2026',
-    option: 3, pledge_text: s3opts[2],
-    status: 'pending', created_at: ts(3300)
-  };
-  store['providers/demo-college/runs/run-s3-a/pledges/pl3'] = {
-    student_ref: 'p_b2c85a14', session: 3, cohort_id: 'intake-2026',
-    option: 6, pledge_text: 'I will ask my family to buy loose fruit and veg instead of packaged.',
-    status: 'pending', created_at: ts(3200)
-  };
+    // Runs (one session delivered to one group) and their pledges.
+    for (const r of p.runs) {
+      const rbase = base + '/runs/' + r.id;
+      store[rbase] = {
+        session: r.session, cohort_id: r.cohort_id, group_id: r.group_id, status: r.status,
+        pledge_count: r.pledge_count, started_at: ts(r.started_at), ended_at: ts(r.ended_at)
+      };
+      for (const pl of r.pledges) {
+        store[rbase + '/pledges/' + pl.id] = {
+          student_ref: pl.student_ref, session: pl.session, cohort_id: pl.cohort_id,
+          option: pl.option, pledge_text: pl.pledge_text,
+          status: pl.status, created_at: ts(pl.created_at)
+        };
+      }
+    }
+  }
 
   store.__seeded = true;
+  store.__seed_v = DEMO_SEED_VERSION;
   saveStore(store);
 })();
 

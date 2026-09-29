@@ -5,166 +5,231 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Pledge Widget</title>
+<link rel="stylesheet" href="../theme-tokens.css">
+<script src="../theme.js"></script>
 <style>
   /* ─────────────────────────────────────────────────────────────────────────
-     The merged pledge widget: capture form + run counter in ONE surface.
+     The pledge widget: one surface, three moments.
 
-     In JOM these were two separate iframes coordinated by postMessage, because
-     the counter was a public engagement device that lived elsewhere on the page.
-     Here they are one component — a facilitator-led capture endpoint where the
-     counter's job is to give the room immediate feedback that a pledge landed.
+       waiting  → "Ready for the next player" (no student handed over yet)
+       turn     → the student picks one of five pledges, or writes their own
+       pledged  → the kick: ball over the posts, the score ticks, their pledge
+                  card is stamped — then the device goes back to the facilitator
 
-     Presentation is redesigned from scratch. All artwork is placeholder SVG and
-     there is exactly ONE token design, enough to prove the interaction works.
+     Colours and type come from theme-tokens.css (three proposed directions).
+     The stage at the top is a canvas scene (kick-scene.js).
      ───────────────────────────────────────────────────────────────────────── */
-  :root {
-    --ink:#12212e; --muted:#64748b; --line:#e2e8f0; --surface:#fff;
-    --accent:#2563eb; --accent-2:#0ea5e9; --ok:#059669; --warn-bg:#fffbeb;
-  }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Segoe UI',system-ui,sans-serif; color:var(--ink); background:transparent; }
+  body { font-family:var(--font-body); color:var(--ink); background:transparent;
+         -webkit-font-smoothing:antialiased; }
+  .display { font-family:var(--font-display); font-weight:var(--display-weight);
+             text-transform:var(--display-case); letter-spacing:var(--display-track); }
 
   .widget { max-width:720px; margin:0 auto; background:var(--surface);
-            border:1px solid var(--line); border-radius:16px; overflow:hidden;
-            box-shadow:0 1px 3px rgba(18,33,46,.06), 0 8px 24px rgba(18,33,46,.06); }
+            border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+            box-shadow:var(--shadow); }
 
-  /* ── Counter strip ─────────────────────────────────────────────────────── */
-  .counter { position:relative; background:linear-gradient(160deg,#1e293b,#0f172a);
-             color:#fff; padding:1.1rem 1.25rem 0; overflow:hidden; }
-  .counter-head { display:flex; justify-content:space-between; align-items:flex-start;
-                  position:relative; z-index:2; }
-  .counter-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.1em;
-                   color:#94a3b8; font-weight:700; }
-  .counter-n { font-size:2.4rem; font-weight:700; line-height:1; letter-spacing:-.02em;
-               transition:transform .3s cubic-bezier(.34,1.56,.64,1); }
-  .counter-n.bump { transform:scale(1.16); }
-  .counter-sub { font-size:.75rem; color:#94a3b8; margin-top:.15rem; }
-  .session-chip { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16);
-                  border-radius:99px; padding:.25rem .7rem; font-size:.72rem; font-weight:600; }
+  /* ── Stage: the scene + the score ──────────────────────────────────────── */
+  .stage { position:relative; height:220px; color:var(--stage-ink); overflow:hidden;
+           background:var(--scene-sky-top); }
+  .scene { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .stage-head { position:absolute; top:0; left:0; right:0; display:flex;
+                justify-content:space-between; align-items:flex-start; padding:.9rem 1.05rem;
+                pointer-events:none; }
+  .stage-head > * { pointer-events:auto; }
+  .score-label { font-size:.66rem; text-transform:uppercase; letter-spacing:.12em;
+                 font-weight:700; color:var(--stage-muted); }
+  .score-n { position:relative; height:2.9rem; overflow:hidden; font-size:2.75rem; line-height:1.05;
+             font-family:var(--font-display); font-weight:var(--display-weight);
+             font-variant-numeric:tabular-nums; min-width:3ch; }
+  .score-n span { display:block; }
+  .score-n span.out { position:absolute; top:0; left:0; animation:roll-out .45s cubic-bezier(.5,0,.2,1) forwards; }
+  .score-n span.in  { animation:roll-in .45s cubic-bezier(.3,1.4,.5,1) forwards; }
+  @keyframes roll-out { to { transform:translateY(-100%); opacity:0; } }
+  @keyframes roll-in  { from { transform:translateY(100%); opacity:0; } to { transform:none; opacity:1; } }
+  .score-sub { font-size:.74rem; color:var(--stage-muted); margin-top:.1rem; max-width:calc(50vw - 44px); }
+  [data-theme="matchday"] .stage-head { text-shadow:0 1px 8px rgba(0,0,0,.45); }
 
-  /* ── The pitch: rugby posts a ball is kicked over (a conversion) ───────── */
-  .pitch { position:relative; height:118px; margin-top:.5rem; overflow:hidden; }
-  .pitch .ground { position:absolute; left:0; right:0; bottom:0; height:22px;
-                   background:linear-gradient(180deg, rgba(52,211,153,.14), rgba(52,211,153,.04));
-                   border-top:1px solid rgba(110,231,183,.35); }
-  /* The H posts — two tall uprights + a crossbar — standing on the ground. */
-  .posts { position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
-           width:96px; height:104px; color:#e2e8f0; opacity:.9;
-           transition:filter .18s ease, opacity .18s ease; }
-  .posts.flash { filter:drop-shadow(0 0 7px rgba(125,211,252,.9)); opacity:1; }
+  .stage-tools { display:flex; gap:.4rem; align-items:center; }
+  .chip { background:var(--stage-chip); border-radius:99px; padding:.28rem .75rem;
+          font-size:.72rem; font-weight:700; backdrop-filter:blur(6px); white-space:nowrap; }
+  .icon-btn { width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
+              background:var(--stage-chip); color:var(--stage-ink); display:grid; place-items:center;
+              backdrop-filter:blur(6px); }
+  .icon-btn svg { width:16px; height:16px; }
+  .icon-btn .off { display:none; }
+  .icon-btn[aria-pressed="false"] .on { display:none; }
+  .icon-btn[aria-pressed="false"] .off { display:block; }
 
-  /* Kick: an X-wrapper moves the ball across, an inner arc-wrapper carries it
-     up and over the crossbar, and the ball itself spins. Three nested elements
-     so each animates a different property without transform conflicts. */
-  .kick { position:absolute; bottom:22px; left:9%; z-index:3;
-          animation:kick-x 1.15s cubic-bezier(.3,0,.7,1) forwards; }
-  .kick .arc { animation:kick-arc 1.15s cubic-bezier(.2,.5,.5,1) forwards; }
-  .kick .ball { display:block; width:30px; height:30px;
-                animation:kick-spin 1.15s linear forwards; }
-  @keyframes kick-x   { from { left:9%; } to { left:82%; } }
-  @keyframes kick-arc {
-    0%   { transform:translateY(0)     scale(1);   opacity:0; }
-    10%  { opacity:1; }
-    45%  { transform:translateY(-98px) scale(.9); }
-    100% { transform:translateY(-52px) scale(.6);  opacity:.75; }
-  }
-  @keyframes kick-spin { from { transform:rotate(-24deg); } to { transform:rotate(320deg); } }
-
-  @media (prefers-reduced-motion: reduce) {
-    .kick, .kick .arc, .kick .ball { animation-duration:.01s; }
+  /* The goal banner that pops over the scene. */
+  .goal { position:absolute; left:0; right:0; top:43%; text-align:center; pointer-events:none;
+          opacity:0; transform:scale(.6); }
+  .goal.show { animation:goal-pop 1.9s cubic-bezier(.2,1.4,.4,1) forwards; }
+  .goal .big { font-family:var(--font-display); font-weight:900; text-transform:uppercase;
+               font-size:2.1rem; letter-spacing:.02em; line-height:1; color:var(--stage-ink);
+               text-shadow:0 2px 0 rgba(0,0,0,.18), 0 6px 22px rgba(0,0,0,.35); }
+  .goal .small { display:inline-block; margin-top:.35rem; font-weight:800; font-size:.8rem;
+                 background:var(--accent); color:var(--accent-ink); border-radius:99px; padding:.2rem .7rem; }
+  @keyframes goal-pop {
+    0%   { opacity:0; transform:scale(.6); }
+    14%  { opacity:1; transform:scale(1.06); }
+    22%  { transform:scale(1); }
+    80%  { opacity:1; transform:scale(1); }
+    100% { opacity:0; transform:scale(1.04) translateY(-8px); }
   }
 
   /* ── Body ──────────────────────────────────────────────────────────────── */
-  .body { padding:1.35rem 1.35rem 1.5rem; }
-  .who { display:flex; align-items:center; gap:.6rem; background:#f8fafc;
-         border:1px solid var(--line); border-radius:11px; padding:.6rem .8rem; margin-bottom:1rem; }
-  .who .avatar { width:32px; height:32px; border-radius:50%; background:#e0e7ff;
-                 display:grid; place-items:center; font-weight:700; color:#3730a3; font-size:.85rem; flex:0 0 auto; }
-  .who .nm { font-weight:600; font-size:.92rem; }
-  .who .rf { font-size:.7rem; color:var(--muted); font-family:ui-monospace,Consolas,monospace; }
+  .body { padding:1.3rem 1.35rem 1.45rem; }
+  .hidden { display:none !important; }
+  .view { animation:view-in .28s ease-out; }
+  @keyframes view-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 
-  .question { font-size:1.14rem; font-weight:700; line-height:1.35; margin-bottom:.2rem; }
+  /* Waiting */
+  .idle { text-align:center; padding:1.2rem .5rem 1.4rem; }
+  .idle img { width:56px; height:auto; margin-bottom:.7rem; animation:wobble 2.8s ease-in-out infinite; }
+  @keyframes wobble { 0%,100% { transform:rotate(-8deg); } 50% { transform:rotate(8deg) translateY(-3px); } }
+  .idle h3 { font-size:1.35rem; margin-bottom:.25rem; }
+  .idle p { color:var(--muted); font-size:.9rem; }
+
+  /* Turn */
+  .turn { display:flex; align-items:center; gap:.75rem; margin-bottom:1.05rem; }
+  .avatar { width:46px; height:46px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
+            display:grid; place-items:center; font-family:var(--font-display); font-weight:900;
+            font-size:1.3rem; flex:0 0 auto; box-shadow:0 0 0 4px var(--accent-soft); }
+  .turn .hi { font-size:.78rem; color:var(--muted); font-weight:600; }
+  .turn .nm { font-size:1.45rem; line-height:1.1; }
+  .turn .ref { margin-left:auto; font-size:.66rem; color:var(--muted); background:var(--surface-2);
+               border:1px solid var(--line); border-radius:99px; padding:.18rem .55rem;
+               font-family:ui-monospace,Consolas,monospace; display:flex; gap:.3rem; align-items:center; }
+  .question { font-size:1.2rem; line-height:1.3; margin-bottom:.2rem; font-family:var(--font-display);
+              font-weight:var(--display-weight); letter-spacing:var(--display-track); }
+  [data-theme="matchday"] .question { text-transform:none; font-size:1.3rem; }
   .prompt { font-size:.86rem; color:var(--muted); margin-bottom:.85rem; }
 
-  textarea { width:100%; padding:.75rem .85rem; border:1.5px solid var(--line);
-             border-radius:11px; font:inherit; min-height:110px; resize:vertical; color:var(--ink); }
+  .options { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.95rem; }
+  .opt { display:flex; align-items:center; gap:.75rem; width:100%; text-align:left;
+         background:var(--surface); border:2px solid var(--line); border-radius:var(--radius-sm);
+         padding:.72rem .85rem; font:inherit; color:var(--ink); cursor:pointer; position:relative;
+         transition:border-color .15s, background .15s, transform .15s, box-shadow .15s; }
+  .opt:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-1px); }
+  .opt:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .opt.sel { border-color:var(--accent); background:var(--accent-soft);
+             box-shadow:0 6px 18px -8px var(--accent); transform:translateY(-1px); }
+  .opt .n { width:30px; height:30px; flex:0 0 auto; border-radius:8px;
+            display:grid; place-items:center; font-family:var(--font-display); font-weight:900; font-size:1rem;
+            background:var(--surface-2); border:1.5px solid var(--line); color:var(--ink);
+            transition:background .15s, color .15s, transform .25s; }
+  .opt.sel .n { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); transform:rotate(-6deg) scale(1.08); }
+  .opt .txt { font-size:.93rem; line-height:1.35; flex:1; }
+  .opt .tick { width:20px; height:20px; flex:0 0 auto; opacity:0; transform:scale(.4);
+               transition:opacity .15s, transform .25s cubic-bezier(.3,1.6,.5,1); color:var(--accent-strong); }
+  .opt.sel .tick { opacity:1; transform:scale(1); }
+  .opt.own { border-style:dashed; }
+  .opt.own .txt { color:var(--muted); font-weight:700; }
+  .opt.own.sel .txt { color:var(--ink); }
+  .opt:disabled { cursor:default; }
+
+  textarea { width:100%; padding:.8rem .9rem; border:2px solid var(--line); background:var(--surface);
+             border-radius:var(--radius-sm); font:inherit; min-height:100px; resize:vertical; color:var(--ink); }
   textarea:focus { outline:none; border-color:var(--accent); }
   .count { text-align:right; font-size:.72rem; color:var(--muted); margin-top:.25rem; }
-  .count.over { color:#dc2626; font-weight:600; }
-
+  .count.over { color:var(--danger); font-weight:700; }
   .privacy { display:flex; gap:.5rem; align-items:flex-start; background:var(--warn-bg);
-             border:1px solid #fcd34d; color:#78350f; border-radius:9px;
+             border:1px solid #fcd34d; color:#78350f; border-radius:var(--radius-sm);
              padding:.55rem .7rem; font-size:.76rem; margin:.7rem 0 1rem; }
 
-  /* ── Option picker ─────────────────────────────────────────────────────── */
-  .options { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.9rem; }
-  .opt { display:flex; align-items:center; gap:.7rem; width:100%; text-align:left;
-         background:#fff; border:1.5px solid var(--line); border-radius:12px;
-         padding:.7rem .85rem; font:inherit; color:var(--ink); cursor:pointer;
-         transition:border-color .12s, background .12s, box-shadow .12s; }
-  .opt:hover { border-color:#c7d2fe; }
-  .opt.sel { border-color:var(--accent); background:#eff6ff;
-             box-shadow:0 0 0 2px rgba(37,99,235,.14); }
-  .opt .n { width:26px; height:26px; flex:0 0 auto; border-radius:50%;
-            display:grid; place-items:center; font-size:.82rem; font-weight:700;
-            background:#eef2ff; color:#3730a3; }
-  .opt.sel .n { background:var(--accent); color:#fff; }
-  .opt .txt { font-size:.9rem; line-height:1.35; }
-  .opt.own { border-style:dashed; }
-  .opt.own .txt { color:var(--muted); font-weight:600; }
-  .opt.own.sel .txt { color:var(--ink); }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:.55rem;
+         background:var(--accent); color:var(--accent-ink); border:none; border-radius:var(--radius-sm);
+         padding:.9rem 1.3rem; font-family:var(--font-display); font-weight:800; font-size:1.05rem;
+         text-transform:var(--display-case); letter-spacing:.02em; cursor:pointer;
+         box-shadow:0 8px 20px -10px var(--accent); transition:transform .1s, filter .15s, opacity .15s; }
+  .btn:hover:not(:disabled) { filter:brightness(1.05); transform:translateY(-1px); }
+  .btn:active:not(:disabled) { transform:translateY(1px); }
+  .btn:disabled { opacity:.38; cursor:not-allowed; box-shadow:none; }
+  .btn img { width:22px; height:auto; transition:transform .3s; }
+  .btn:not(:disabled):hover img { transform:rotate(-20deg); }
+  .btn.wide { width:100%; }
+  .link-btn { background:none; border:none; color:var(--muted); font:inherit; font-size:.84rem;
+              font-weight:600; cursor:pointer; padding:.5rem .7rem; border-radius:8px; }
+  .link-btn:hover { color:var(--ink); background:var(--surface-2); }
+  .actions { display:flex; gap:.5rem; align-items:center; }
+  .actions .btn { flex:1; }
+  .err { color:var(--danger); font-size:.84rem; margin-top:.6rem; font-weight:600; }
+  .hint { font-size:.72rem; color:var(--muted); text-align:center; margin-top:.55rem; }
 
-  .btn { display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
-         background:var(--accent); color:#fff; border:none; border-radius:11px;
-         padding:.75rem 1.3rem; font:inherit; font-weight:600; cursor:pointer; }
-  .btn:disabled { opacity:.4; cursor:not-allowed; }
-  .btn.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
-  .actions { display:flex; gap:.6rem; }
-  .actions .btn:first-child { flex:1; }
+  /* Pledged */
+  .thanks { text-align:center; padding:.2rem 0 0; }
+  .card { position:relative; text-align:left; border:2px solid var(--accent); background:var(--accent-soft);
+          border-radius:var(--radius); padding:1rem 1.1rem 1.1rem; margin:0 auto 1rem; max-width:520px;
+          animation:card-in .5s cubic-bezier(.2,1.3,.4,1); }
+  @keyframes card-in { from { opacity:0; transform:translateY(14px) rotate(-1.5deg) scale(.96); } }
+  .card .who { font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; font-weight:800; color:var(--accent-strong); }
+  .card .txt { font-size:1.12rem; line-height:1.35; margin-top:.3rem; font-weight:700; }
+  .stamp { position:absolute; right:.8rem; top:-.9rem; background:var(--ok); color:#fff;
+           font-family:var(--font-display); font-weight:900; text-transform:uppercase; font-size:.78rem;
+           letter-spacing:.06em; padding:.3rem .65rem; border-radius:6px; transform:rotate(6deg);
+           box-shadow:0 6px 14px -6px rgba(0,0,0,.4); animation:stamp .45s .25s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes stamp { from { opacity:0; transform:rotate(-12deg) scale(2.2); } }
+  .thanks h3 { font-size:1.3rem; margin-bottom:.2rem; }
+  .thanks p { color:var(--muted); font-size:.9rem; margin-bottom:1rem; }
 
-  /* ── Thanks card ───────────────────────────────────────────────────────── */
-  .thanks { text-align:center; padding:.5rem 0 .25rem; }
-  .thanks .tick { width:54px; height:54px; margin:0 auto .7rem; }
-  .thanks h3 { font-size:1.2rem; margin-bottom:.3rem; }
-  .thanks p { color:var(--muted); font-size:.88rem; margin-bottom:1.1rem; }
-  .hidden { display:none !important; }
-  .err { color:#dc2626; font-size:.82rem; margin-top:.5rem; }
+  @media (max-width:480px) {
+    .stage { height:188px; }
+    .score-n { font-size:2.3rem; height:2.45rem; }
+    .goal .big { font-size:1.65rem; }
+    .body { padding:1.1rem 1rem 1.2rem; }
+    .turn .ref { display:none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.01s !important; transition-duration:.01s !important; }
+  }
 </style>
 </head>
 <body>
 <div class="widget" id="widget">
 
-  <!-- ── Counter ─────────────────────────────────────────────────────────── -->
-  <div class="counter">
-    <div class="counter-head">
+  <!-- ── Stage: the kick scene + the score ─────────────────────────────── -->
+  <div class="stage">
+    <canvas class="scene" id="scene" aria-hidden="true"></canvas>
+    <div class="stage-head">
       <div>
-        <div class="counter-label">Pledges this session</div>
-        <div class="counter-n" id="count">0</div>
-        <div class="counter-sub" id="count-sub">No pledges yet</div>
+        <div class="score-label">Pledges this session</div>
+        <div class="score-n" id="count" aria-live="polite"><span>0</span></div>
+        <div class="score-sub" id="count-sub">Kick-off!</div>
       </div>
-      <div class="session-chip" id="session-chip">Session —</div>
+      <div class="stage-tools">
+        <span class="chip" id="session-chip">Session —</span>
+        <button class="icon-btn" id="sound" aria-pressed="true" title="Sound">
+          <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="pitch" id="pitch">
-      <!-- Rugby goal posts (H): two tall uprights + a crossbar. A kicked ball
-           sails up and over the crossbar between them — a conversion. -->
-      <svg class="posts" id="posts" viewBox="0 0 96 104" fill="none"
-           stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true">
-        <line x1="26" y1="104" x2="26" y2="6"/>
-        <line x1="70" y1="104" x2="70" y2="6"/>
-        <line x1="22" y1="60" x2="74" y2="60"/>
-      </svg>
-      <div class="ground"></div>
+    <div class="goal" id="goal" aria-hidden="true">
+      <div class="big" id="goal-big">Converted!</div>
+      <div class="small" id="goal-small">+1 pledge</div>
     </div>
   </div>
 
-  <!-- ── Capture form ────────────────────────────────────────────────────── -->
   <div class="body">
-    <div id="form-view">
-      <div class="who" id="who">
+    <!-- ── Waiting for a student ───────────────────────────────────────── -->
+    <div id="idle-view" class="idle view">
+      <img src="assets/rugby-ball@2x.png" alt="">
+      <h3 class="display" id="idle-title">Ready for the next player</h3>
+      <p id="idle-sub">Your facilitator will choose who’s up next.</p>
+    </div>
+
+    <!-- ── The student's turn ──────────────────────────────────────────── -->
+    <div id="form-view" class="hidden">
+      <div class="turn">
         <div class="avatar" id="who-initial">?</div>
         <div>
-          <div class="nm" id="who-name">No student selected</div>
-          <div class="rf" id="who-ref">—</div>
+          <div class="hi">Over to you,</div>
+          <div class="nm display" id="who-name">Player</div>
+        </div>
+        <div class="ref" id="who-ref-wrap" title="Only this code is saved — never your name">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <span id="who-ref">—</span>
         </div>
       </div>
 
@@ -174,52 +239,40 @@
       <!-- Five predefined options + a sixth "own idea" that reveals the text box. -->
       <div class="options" id="options" role="radiogroup" aria-label="Pledge options"></div>
 
-      <!-- Only shown when the sixth option is chosen. -->
       <div id="own-wrap" class="hidden">
         <textarea id="pledge" maxlength="1000"
                   placeholder="Write your own pledge — start with “I will…”" aria-label="Your own pledge"></textarea>
         <div class="count" id="char-count">0 / 1000</div>
         <div class="privacy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" style="flex:0 0 auto;margin-top:1px">
-            <path d="M12 3l7 4v5c0 4.4-3 8.4-7 9.5C8 20.4 5 16.4 5 12V7z"/>
-          </svg>
+               stroke-width="2" style="flex:0 0 auto;margin-top:1px"><path d="M12 3l7 4v5c0 4.4-3 8.4-7 9.5C8 20.4 5 16.4 5 12V7z"/></svg>
           <span>Don’t include real names — not yours, not anyone else’s. Only the pledge text is stored.</span>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" id="submit" disabled>Submit pledge</button>
-        <button class="btn secondary" id="skip">Skip</button>
+        <button class="btn" id="submit" disabled>
+          <img src="assets/rugby-ball@2x.png" alt=""><span id="submit-label">Make my pledge</span>
+        </button>
+        <button class="link-btn" id="skip">Skip</button>
       </div>
+      <div class="hint" id="hint">Pick one to kick for goal</div>
       <div class="err hidden" id="err"></div>
     </div>
 
-    <!-- ── Thanks ────────────────────────────────────────────────────────── -->
+    <!-- ── Pledged ─────────────────────────────────────────────────────── -->
     <div id="thanks-view" class="thanks hidden">
-      <svg class="tick" viewBox="0 0 52 52" fill="none">
-        <circle cx="26" cy="26" r="24" stroke="#059669" stroke-width="3" opacity=".25"/>
-        <path d="M15 27l8 8 15-16" stroke="#059669" stroke-width="4"
-              stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <h3>Pledge recorded</h3>
-      <p id="thanks-sub">Pass the device to the next student.</p>
-      <button class="btn wide" id="next" style="width:100%">Next student</button>
+      <div class="card">
+        <span class="stamp">Converted ✓</span>
+        <div class="who" id="card-who">Your pledge</div>
+        <div class="txt" id="card-text"></div>
+      </div>
+      <h3 class="display" id="thanks-title">Great kick!</h3>
+      <p id="thanks-sub">Pass the device back to your facilitator.</p>
+      <button class="btn wide" id="next">Next player →</button>
     </div>
   </div>
 </div>
-
-<!-- ── The single placeholder token ───────────────────────────────────────
-     One token design, as agreed. Swap this symbol for real artwork later;
-     everything references it via <use href="#tft-token">. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="tft-token" viewBox="0 0 40 40">
-    <circle cx="20" cy="20" r="18" fill="#38bdf8"/>
-    <circle cx="20" cy="20" r="18" fill="none" stroke="#0ea5e9" stroke-width="2"/>
-    <path d="M13 20.5l4.5 4.5L27 15.5" stroke="#fff" stroke-width="3.2"
-          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-</svg>
 
 <script type="module" src="./pledge-widget-app.js"></script>
 </body>
