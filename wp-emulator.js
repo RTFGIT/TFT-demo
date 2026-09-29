@@ -92,25 +92,7 @@ const WP_USERS = [
     s.__roster_v = DEMO_SEED_VERSION;
   }
 
-  if (s.__seeded) { save(s); return; }
-  s.session_pages = SESSIONS.map(x => ({
-    n: x.n,
-    title: x.title,
-    theme_note: x.theme_note || '',
-    blurb: x.theme_note
-      ? `This session explores ${x.title.toLowerCase()} (${x.theme_note.toLowerCase()}). Watch the video together, then each student makes a pledge.`
-      : `This session explores ${x.title.toLowerCase()}. Watch the video together, then each student makes a pledge.`,
-    objectives: [
-      'Understand the theme through the session video.',
-      'Choose one realistic pledge to act on this week.'
-    ],
-    duration_mins: 45,
-    video_url: x.video_url || '',
-    video_length: '—',
-    question: x.question,
-    prompt: x.prompt,
-    options: x.options.slice()
-  }));
+  delete s.session_pages;                 // older demos cached these; now derived from SESSIONS
   s.__seeded = true;
   save(s);
 })();
@@ -134,8 +116,19 @@ function publicUser(u) {
 }
 
 // ─── Session page content (WP pages) ─────────────────────────────────────────
-export function wpSessionPage(n)  { return load().session_pages.find(p => p.n === Number(n)) || null; }
-export function wpSessionPages()  { return load().session_pages; }
+/**
+ * Session pages. In production each is a WordPress page holding the lesson plan
+ * (docs/TFT - Learning Sessions.docx); here they are built from SESSIONS so the
+ * content is never stale in a visitor's browser.
+ */
+const SESSION_PAGES = SESSIONS.map(x => ({
+  n: x.n, title: x.title, theme_note: x.theme_note || '', summary: x.summary || '',
+  outcomes: x.outcomes || [], film: x.film || null, classroom: x.classroom || null,
+  physical: x.physical || null, citizen: x.citizen || '', video_url: x.video_url || '',
+  question: x.question, prompt: x.prompt, options: x.options.slice()
+}));
+export function wpSessionPage(n)  { return SESSION_PAGES.find(p => p.n === Number(n)) || null; }
+export function wpSessionPages()  { return SESSION_PAGES; }
 
 // ═══ Cohorts ═════════════════════════════════════════════════════════════════
 function providerCohorts(store, providerId) {

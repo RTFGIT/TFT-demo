@@ -47,7 +47,13 @@ import {
   collection, getDocs, serverTimestamp, runTransaction, increment,
   getAuth, signInWithEmailAndPassword, signOut, MODE, currentUser
 } from '../data-layer.js';
-import { SESSION_COUNT, EXPECTED_GROUPS, OWN_SUGGESTION_INDEX } from '../public_widget/session-config.js';
+import * as sessionConfig from '../public_widget/session-config.js';
+const { SESSION_COUNT, EXPECTED_GROUPS, OWN_SUGGESTION_INDEX } = sessionConfig;
+// Read defensively: a browser holding a cached older session-config.js (GitHub
+// Pages caches for ~10 min after a deploy) must not stop the portal loading.
+const SESSION_PARTS = sessionConfig.SESSION_PARTS || {
+  film: { label: 'Watch & respond', how: '' }, classroom: { label: 'Classroom task', how: '' },
+  physical: { label: 'Physical task', how: '' }, pledge: { label: 'Pledge to the planet', how: '' } };
 
 const app = initializeApp({ projectId: 'tft26-local' });
 const db  = getFirestore(app);
@@ -106,10 +112,20 @@ function show(templateId) {
   setChrome();
 }
 
-/** The 4-step rail across details → video → pledge → complete. */
+/** "Term: definition" items get the term in bold (e.g. the Match Time cards). */
+const termify = (t) => {
+  const m = String(t).match(/^([A-Z][A-Za-z ’']{1,24}): (.+)$/);
+  return m ? `<strong>${esc(m[1])}:</strong> ${esc(m[2])}` : esc(t);
+};
+/** A task's instructions: optional sub-headings, each with a bullet list. */
+const renderBlocks = (blocks = []) => blocks.map(b =>
+  (b.heading ? `<div class="blk-h">${esc(b.heading)}</div>` : '') +
+  `<ul class="blk">${(b.items || []).map(i => `<li>${termify(i)}</li>`).join('')}</ul>`).join('');
+
+/** The 4-step rail across plan → run → pledges → complete. */
 function rail(el, step) {
   if (!el) return;
-  const steps = ['Details', 'Video', 'Pledges', 'Done'];
+  const steps = ['Session plan', 'Run the session', 'Pledges', 'Done'];
   el.innerHTML = steps.map((s, i) => {
     const cls = i < step ? 'done' : i === step ? 'on' : '';
     const mark = i < step ? '✓' : (i + 1);
@@ -638,11 +654,14 @@ async function viewDetail(cid, n) {
   $('sd-crumb').setAttribute('href', H.sessions(cid));
   $('sd-eyebrow').textContent  = `${cohort.label} · Session ${n} of ${SESSION_COUNT}`;
   $('sd-title').textContent    = page.title;
-  $('sd-blurb').textContent    = page.blurb;
-  $('sd-question').textContent = page.question;
-  $('sd-prompt').textContent   = page.prompt;
-  $('sd-duration').textContent = `About ${page.duration_mins} minutes`;
-  $('sd-objectives').innerHTML = (page.objectives || []).map(o => `<li>${esc(o)}</li>`).join('');
+  $('sd-blurb').textContent    = [page.theme_note, page.summary].filter(Boolean).join(' — ');
+  $('sd-outcomes').innerHTML   = (page.outcomes || []).map(o => `<li>${esc(o)}</li>`).join('');
+  $('sd-plan').innerHTML = [
+    [SESSION_PARTS.film.label,      page.film ? `Film: ${page.film.title}` : 'Session film'],
+    [SESSION_PARTS.classroom.label, page.classroom?.title || ''],
+    [SESSION_PARTS.physical.label,  page.physical?.title || ''],
+    [SESSION_PARTS.pledge.label,    page.question]
+  ].map(([l, t]) => `<li><div><small>${esc(l)}</small>${esc(t)}</div></li>`).join('');
 
   const runs = (await allRuns()).filter(r => r.cohort_id === cid && r.session === n);
   const doneGroups = new Set(runs.filter(delivered).map(r => r.group_id));
@@ -705,10 +724,26 @@ function viewVideo(cid, n) {
   show('v-video');
   rail($('vd-rail'), 1);
   const group = wpGroups(pid, cid).find(g => g.id === run.groupId);
-  $('vd-eyebrow').textContent  = `${cohort.label} · Session ${n} · ${page.title}`;
-  $('vd-sub').textContent      = group ? `Delivering to ${group.label}` : '';
+  $('vd-eyebrow').textContent  = `${cohort.label} · Session ${n} of ${SESSION_COUNT}`;
+  $('vd-title').textContent    = page.title;
+  $('vd-sub').textContent      = group ? `Delivering to ${group.label} — work through the four parts in order.` : '';
+  $('vd-film').textContent     = page.film?.title || 'Session film';
+  $('vd-film-how').textContent = SESSION_PARTS.film.how;
+  $('vd-questions').innerHTML  = (page.film?.questions || []).map(q => `<li>${esc(q)}</li>`).join('');
+  $('vd-classroom').textContent      = page.classroom?.title || '';
+  $('vd-classroom-how').textContent  = SESSION_PARTS.classroom.how;
+  $('vd-classroom-body').innerHTML   = renderBlocks(page.classroom?.blocks);
+  $('vd-physical').textContent       = page.physical?.title || '';
+  $('vd-physical-how').textContent   = SESSION_PARTS.physical.how;
+  $('vd-physical-body').innerHTML    = renderBlocks(page.physical?.blocks);
   $('vd-question').textContent = page.question;
+  $('vd-pledge-how').textContent = SESSION_PARTS.pledge.how;
+  $('vd-citizen').textContent  = page.citizen || '';
   if (page.video_url) $('vd-videonote').textContent = page.video_url;
+  appEl.querySelectorAll('[data-part]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    $(a.dataset.part)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
   $('vd-back').addEventListener('click', e => { e.preventDefault(); go2(H.detail(cid, n)); });
   $('vd-next').addEventListener('click', async () => {
     const btn = $('vd-next');

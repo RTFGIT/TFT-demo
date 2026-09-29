@@ -341,6 +341,20 @@ export function onAuthStateChanged(auth, cb) {
   saveStore(store);
 })();
 
+// Session content lives in session-config.js. When it changes, refresh the stored
+// sessions/{n} copies (what the widget reads) without wiping demo activity.
+(function refreshSessions() {
+  const store = loadStore();
+  const sig = JSON.stringify(SESSIONS.map(s => [s.title, s.theme_note, s.question, s.prompt, s.options]));
+  if (store.__sessions_sig === sig) return;
+  SESSIONS.forEach(s => {
+    store['sessions/' + s.n] = { ...(store['sessions/' + s.n] || {}), n: s.n, title: s.title,
+      theme_note: s.theme_note || '', question: s.question, prompt: s.prompt, options: s.options.slice(), active: true };
+  });
+  store.__sessions_sig = sig;
+  saveStore(store);
+})();
+
 // ── Dev helpers (console: __localdb.reset() / .dump()) ───────────────────────
 if (typeof window !== 'undefined') {
   window.__localdb = {

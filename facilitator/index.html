@@ -274,6 +274,32 @@
   .hint .cell { width:20px; height:20px; font-size:.62rem; cursor:default; --g:var(--accent); }
   .hint .cell:hover { transform:none; }
 
+  /* ── Session content (from the Learning Sessions doc) ─────────────────── */
+  .outcomes { margin-left:1.1rem; font-size:.88rem; line-height:1.6; display:flex; flex-direction:column; gap:.3rem; }
+  .plan { list-style:none; display:flex; flex-direction:column; gap:.55rem; counter-reset:part; }
+  .plan li { display:grid; grid-template-columns:28px 1fr; gap:.6rem; align-items:start; counter-increment:part; font-size:.88rem; }
+  .plan li::before { content:counter(part); width:28px; height:28px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
+                     display:grid; place-items:center; font-weight:800; font-size:.8rem; }
+  .plan li small { display:block; color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; font-weight:800; }
+  .part-nav { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:1rem; position:sticky; top:2.9rem; z-index:5;
+              padding:.4rem 0; background:var(--bg); }
+  .part-nav a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:700; color:var(--ink);
+                text-decoration:none; background:var(--surface); border:1.5px solid var(--line); border-radius:99px; padding:.3rem .75rem .3rem .35rem; }
+  .part-nav a:hover { border-color:var(--accent); }
+  .part-nav b { width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-size:.7rem; }
+  .part { margin-bottom:1rem; scroll-margin-top:6rem; }
+  .part-head { display:flex; gap:.8rem; align-items:center; margin-bottom:.3rem; }
+  .part-n { width:40px; height:40px; border-radius:50%; background:var(--accent); color:var(--accent-ink); flex:0 0 auto;
+            display:grid; place-items:center; font-family:var(--font-display); font-weight:var(--display-weight); font-size:1.3rem; }
+  .part-l { font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; font-weight:800; color:var(--muted); }
+  .part-t { font-family:var(--font-display); font-weight:var(--display-weight); text-transform:var(--display-case);
+            letter-spacing:var(--display-track); font-size:1.55rem; line-height:1.05; color:var(--accent-strong); }
+  .part-how { font-size:.84rem; color:var(--muted); font-style:italic; margin:.2rem 0 .8rem; }
+  .blk-h { font-weight:800; font-size:.9rem; margin:.6rem 0 .35rem; }
+  .blk { margin-left:1.1rem; font-size:.88rem; line-height:1.55; display:flex; flex-direction:column; gap:.3rem; }
+  .questions { margin-left:1.3rem; display:flex; flex-direction:column; gap:.45rem; font-size:.95rem; font-weight:600; }
+  .questions li::marker { color:var(--accent-strong); font-weight:800; }
+
   .hidden { display:none !important; }
 </style>
 </head>
@@ -421,16 +447,14 @@
       <p class="sub" id="sd-blurb"></p>
     </header>
 
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:1rem">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:1rem">
       <div class="card">
-        <h2 class="section" style="margin-top:0">What students will do</h2>
-        <ul id="sd-objectives" style="font-size:.87rem;line-height:1.75;margin-left:1rem"></ul>
-        <div class="muted" style="font-size:.8rem;margin-top:.5rem" id="sd-duration"></div>
+        <h2 class="section" style="margin-top:0">Learning outcomes</h2>
+        <ul class="outcomes" id="sd-outcomes"></ul>
       </div>
       <div class="card">
-        <h2 class="section" style="margin-top:0">Thematic question</h2>
-        <div id="sd-question" style="font-weight:700;font-size:.98rem"></div>
-        <div class="muted" style="font-size:.8rem;margin-top:.5rem" id="sd-prompt"></div>
+        <h2 class="section" style="margin-top:0">The session</h2>
+        <ol class="plan" id="sd-plan"></ol>
       </div>
     </div>
 
@@ -456,32 +480,58 @@
   </div>
 </template>
 
-<!-- ══ 6. VIDEO ═══════════════════════════════════════════════════════════ -->
+<!-- ══ 6. RUN THE SESSION — watch & respond, classroom task, physical task ═ -->
 <template id="v-video">
   <div class="wrap">
-    <div class="crumb"><a href="#" id="vd-back">← Session details</a></div>
+    <div class="crumb"><a href="#" id="vd-back">← Session plan</a></div>
     <div class="rail" id="vd-rail"></div>
     <header class="page">
       <div class="eyebrow" id="vd-eyebrow"></div>
-      <h1>Watch together</h1>
+      <h1 id="vd-title">Run the session</h1>
       <p class="sub" id="vd-sub"></p>
     </header>
-    <div class="video-frame" style="margin-bottom:1rem">
-      <div style="text-align:center">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>
-        </svg>
-        <div style="margin-top:.6rem;font-size:.84rem" id="vd-videonote">Placeholder — no video URL set for this session</div>
+
+    <nav class="part-nav" aria-label="Session parts">
+      <a href="#" data-part="part-film"><b>1</b> Watch &amp; respond</a>
+      <a href="#" data-part="part-classroom"><b>2</b> Classroom task</a>
+      <a href="#" data-part="part-physical"><b>3</b> Physical task</a>
+      <a href="#" data-part="part-pledge"><b>4</b> Pledge</a>
+    </nav>
+
+    <section class="card part" id="part-film">
+      <div class="part-head"><span class="part-n">1</span><div><div class="part-l">Watch &amp; respond</div><h2 class="part-t" id="vd-film"></h2></div></div>
+      <p class="part-how" id="vd-film-how"></p>
+      <div class="video-frame" style="margin:.2rem 0 .9rem">
+        <div style="text-align:center">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>
+          </svg>
+          <div style="margin-top:.6rem;font-size:.84rem" id="vd-videonote">Placeholder — no video URL set for this session</div>
+        </div>
       </div>
-    </div>
-    <div class="card" style="margin-bottom:1rem">
-      <h2 class="section" style="margin-top:0">Coming up next</h2>
-      <div style="font-weight:700;font-size:.98rem" id="vd-question"></div>
-      <div class="muted" style="font-size:.82rem;margin-top:.35rem">
-        After the video, each student takes their turn on the device: pick a pledge, kick it over the posts.
-      </div>
-    </div>
-    <button class="btn big wide" id="vd-next">Continue to pledges →</button>
+      <div class="blk-h">Pause and discuss</div>
+      <ol class="questions" id="vd-questions"></ol>
+    </section>
+
+    <section class="card part" id="part-classroom">
+      <div class="part-head"><span class="part-n">2</span><div><div class="part-l">Classroom task</div><h2 class="part-t" id="vd-classroom"></h2></div></div>
+      <p class="part-how" id="vd-classroom-how"></p>
+      <div id="vd-classroom-body"></div>
+    </section>
+
+    <section class="card part" id="part-physical">
+      <div class="part-head"><span class="part-n">3</span><div><div class="part-l">Physical task</div><h2 class="part-t" id="vd-physical"></h2></div></div>
+      <p class="part-how" id="vd-physical-how"></p>
+      <div id="vd-physical-body"></div>
+    </section>
+
+    <section class="card part" id="part-pledge">
+      <div class="part-head"><span class="part-n">4</span><div><div class="part-l">Pledge to the planet</div><h2 class="part-t" id="vd-question"></h2></div></div>
+      <p class="part-how" id="vd-pledge-how"></p>
+      <p style="font-weight:700;font-size:.9rem" id="vd-citizen"></p>
+      <p class="muted" style="font-size:.84rem;margin-top:.3rem">Each student takes a turn on the device: pick a pledge, kick it over the posts.</p>
+      <button class="btn big wide" id="vd-next" style="margin-top:.9rem">Continue to pledges →</button>
+    </section>
   </div>
 </template>
 
