@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Try for Tomorrow — Working Demo</title>
+<link rel="stylesheet" href="demo-theme.css">
+<style>
+  .boundary { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.5rem; align-items:stretch; }
+  .store { border-radius:12px; padding:.85rem .95rem; border:1px solid var(--line); background:#fff; }
+  .store.wp     { border-color:#fcd34d; background:#fffbeb; }
+  .store.widget { border-color:#93c5fd; background:#eff6ff; }
+  .store.fb     { border-color:#a7f3d0; background:#ecfdf5; }
+  .store .h { font-weight:700; font-size:.83rem; display:flex; align-items:center; gap:.4rem; }
+  .store .k { font-family:ui-monospace,Consolas,monospace; font-size:.66rem; color:var(--muted); margin-top:.15rem; }
+  .store ul { margin:.5rem 0 0 1rem; font-size:.75rem; line-height:1.55; }
+  .divider { display:grid; place-items:center; color:var(--muted); font-size:.9rem; font-weight:700; }
+  @media (max-width:720px){ .boundary { grid-template-columns:1fr; }
+                            .divider { transform:rotate(90deg); padding:.2rem 0; } }
+  .mode-badge { display:inline-block; margin-left:.5rem; padding:.1rem .5rem; border-radius:99px;
+                background:#d1fae5; color:#065f46; font-size:.66rem; letter-spacing:.04em; vertical-align:1px; }
+  .card.intro { font-size:.9rem; line-height:1.6; margin-bottom:1rem; }
+  .intro-steps { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+  .intro-steps span { background:#eef2ff; color:#3730a3; border-radius:8px; padding:.3rem .6rem; font-size:.8rem; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <div class="eyebrow">RTFxRFL <span class="mode-badge" title="Sandbox mode">● Sandbox</span></div>
+    <h1>Try for Tomorrow — Working Demo</h1>
+    <p class="sub">An interactive walkthrough of the Try for Tomorrow pledge tool.</p>
+  </header>
+
+  <div class="card intro">
+    <strong>What you're looking at.</strong> Try for Tomorrow runs a 6-session programme with young
+    people. After each session's video, every student makes a pledge on a shared device, and a rugby
+    ball is kicked over the posts as each one lands. This demo lets you play all three roles: the
+    <strong>facilitator</strong> running a session, the <strong>pledge widget</strong> students use,
+    and the <strong>admin console</strong> that sees every provider's results.
+    <div class="intro-steps">
+      <span>1 · Open the <em>Facilitator pathway</em> and sign in</span>
+      <span>2 · Create a cohort, add a few students, run a session</span>
+      <span>3 · Open the <em>Admin console</em> to see the pledges arrive</span>
+    </div>
+  </div>
+
+  <div class="emulation-note">
+    <strong>Sandbox mode — your own private copy.</strong> Everything runs inside your browser:
+    nothing you type is sent anywhere, and no one else can see it. The website and database are
+    simulated so the whole flow works without accounts. It's safe to experiment, and
+    <em>Reset all demo data</em> at the bottom starts you fresh.
+  </div>
+
+  <h2 class="section">Pathways</h2>
+  <div class="grid">
+    <a class="card lead" href="facilitator/index.html">
+      <div class="t">🎓 Facilitator pathway</div>
+      <div class="d"><strong>Stands in for WordPress.</strong> Sign in, set up cohorts &amp; groups, then work
+        through a session: details → video → collect pledges. In production these are WordPress pages, not
+        uploaded HTML. The pledge screen embeds the widget in a labelled frame.</div>
+      <div class="meta">alex@democollege.ac.uk · demo</div>
+    </a>
+
+    <a class="card lead" href="admin_console/index.html">
+      <div class="t">◆ Admin console</div>
+      <div class="d">See every provider, whether each session has ever been delivered and how many times,
+        the pledges captured in each run, and the All-Providers totals per session.</div>
+      <div class="meta">admin@local · admin</div>
+    </a>
+
+    <a class="card lead" href="integration.html">
+      <div class="t">🧩 How the widget embeds</div>
+      <div class="d">The part that matters for a real WordPress site: a mock WordPress page with the widget
+        embedded and labelled, the live postMessage contract, and the embed code. <strong>Start here to see
+        what is widget vs WordPress.</strong></div>
+      <div class="meta">the embeddable part explained</div>
+    </a>
+
+    <a class="card" href="public_widget/pledge-widget.html">
+      <div class="t">◈ Pledge widget (standalone)</div>
+      <div class="d">The embeddable widget on its own — the only part hosted on GitHub Pages and iframe-embedded
+        into WordPress. No student selected; useful for looking at it in isolation.</div>
+      <div class="meta">GitHub-hosted · public_widget/</div>
+    </a>
+  </div>
+
+  <h2 class="section">The three layers being emulated</h2>
+  <div class="boundary">
+    <div class="store wp">
+      <div class="h">🔒 1 · WordPress</div>
+      <div class="k">tft26_wp_emulator_v1</div>
+      <ul>
+        <li>Facilitator accounts</li>
+        <li><strong>Real student names</strong></li>
+        <li>Name → <span class="ref">p_…</span> mapping</li>
+        <li>Cohort / session pages</li>
+      </ul>
+    </div>
+    <div class="divider">▶</div>
+    <div class="store widget">
+      <div class="h">◈ 2 · The widget</div>
+      <div class="k">GitHub Pages · public_widget/</div>
+      <ul>
+        <li>Question, options &amp; counter</li>
+        <li>Captures the pledge</li>
+        <li><strong>Name-blind</strong> — gets a <span class="ref">p_…</span> ref</li>
+        <li>Writes straight to Firebase</li>
+      </ul>
+    </div>
+    <div class="divider">▶</div>
+    <div class="store fb">
+      <div class="h">☁ 3 · Firebase</div>
+      <div class="k">tft26_localdb_v1</div>
+      <ul>
+        <li>Providers, cohorts, runs</li>
+        <li>Pledges by <span class="ref">student_ref</span></li>
+        <li><strong>Never a name</strong></li>
+        <li>All-provider totals</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:.8rem">
+    <div class="row between" style="flex-wrap:wrap;gap:.6rem">
+      <div style="font-size:.85rem">
+        <strong>Verify it yourself.</strong> Scans both stores for every name on record and reports
+        whether any leaked across.
+      </div>
+      <button class="btn" id="check">Run boundary check</button>
+    </div>
+    <pre id="check-out" class="hidden mono" style="margin-top:.8rem;background:#0f172a;color:#a7f3d0;
+         padding:.8rem;border-radius:9px;font-size:.76rem;overflow-x:auto;white-space:pre-wrap"></pre>
+  </div>
+
+  <h2 class="section">Demo logins</h2>
+  <table>
+    <thead><tr><th>Where</th><th>Email</th><th>Password</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>Facilitator site</td><td><code>alex@democollege.ac.uk</code></td><td><code>demo</code></td><td>Demo College</td></tr>
+      <tr><td>Facilitator site</td><td><code>sam@demoacademy.ac.uk</code></td><td><code>demo</code></td><td>Demo Academy</td></tr>
+      <tr><td>Admin console</td><td><code>admin@local</code></td><td><code>admin</code></td><td>Full access</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section">Reset</h2>
+  <div class="card">
+    <div class="row between" style="flex-wrap:wrap;gap:.6rem">
+      <div style="font-size:.85rem">Clears both emulated stores — rosters, cohorts, runs and pledges —
+        and re-seeds the demo data.</div>
+      <button class="btn danger" id="reset">Reset all demo data</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import './local-firebase.js';
+  import './wp-emulator.js';
+
+  document.getElementById('check').addEventListener('click', () => {
+    const out = document.getElementById('check-out');
+    out.textContent = JSON.stringify(window.__wp.boundaryReport(), null, 2);
+    out.classList.remove('hidden');
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    if (!confirm('Reset all demo data in both emulated stores?')) return;
+    ['tft26_localdb_v1','tft26_localauth_v1','tft26_localusers_v1',
+     'tft26_wp_emulator_v1','tft26_wp_session_v1','tft26_active_run_v1'].forEach(k => localStorage.removeItem(k));
+    sessionStorage.clear();
+    location.reload();
+  });
+</script>
+</body>
+</html>

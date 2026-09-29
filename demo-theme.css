@@ -1,0 +1,133 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   demo-theme.css — shared styling for the Try for Tomorrow testing environment.
+
+   Deliberately NEUTRAL. The RTFxRFL visual identity is not decided yet, so this
+   avoids committing to a look: slate + a single accent, all as CSS variables.
+   Rebranding later means editing :root, not hunting through pages.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ink:      #12212e;
+  --muted:    #64748b;
+  --line:     #e2e8f0;
+  --bg:       #f1f5f9;
+  --surface:  #ffffff;
+  --accent:   #2563eb;
+  --accent-2: #0ea5e9;
+  --ok:       #059669;
+  --warn:     #b45309;
+  --warn-bg:  #fffbeb;
+  --danger:   #dc2626;
+  --radius:   14px;
+  --shadow:   0 1px 3px rgba(18,33,46,.06), 0 8px 24px rgba(18,33,46,.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  padding: 1.75rem 1rem 4rem;
+}
+
+.wrap { max-width: 940px; margin: 0 auto; }
+.wrap.narrow { max-width: 640px; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+header.page { margin-bottom: 1.5rem; }
+header.page .eyebrow {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--accent); font-weight: 700;
+}
+header.page h1 { font-size: 1.7rem; margin-top: .15rem; letter-spacing: -.01em; }
+header.page p.sub { color: var(--muted); margin-top: .3rem; font-size: .95rem; }
+
+/* ── Emulation notice — always visible, never let a tester forget ───────── */
+.emulation-note {
+  background: var(--warn-bg); border: 1px solid #fcd34d; color: #78350f;
+  border-radius: 10px; padding: .7rem 1rem; font-size: .84rem;
+  margin-bottom: 1.5rem;
+}
+.emulation-note strong { font-weight: 700; }
+
+/* ── Cards & grids ──────────────────────────────────────────────────────── */
+h2.section {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin: 1.75rem 0 .7rem; font-weight: 700;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .85rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 1.1rem 1.2rem; box-shadow: var(--shadow);
+}
+a.card { text-decoration: none; color: inherit; display: block; transition: transform .12s, box-shadow .12s; }
+a.card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(18,33,46,.08), 0 14px 32px rgba(18,33,46,.10); }
+.card .t { font-weight: 700; font-size: 1.02rem; display: flex; align-items: center; gap: .5rem; }
+.card .d { font-size: .84rem; color: var(--muted); margin-top: .35rem; }
+.card .meta { font-size: .75rem; color: var(--accent); font-weight: 600; margin-top: .6rem; }
+.card.lead { border-left: 4px solid var(--accent); }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  background: var(--accent); color: #fff; border: none; border-radius: 10px;
+  padding: .65rem 1.2rem; font: inherit; font-weight: 600; cursor: pointer;
+  transition: filter .12s, transform .08s;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.08); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.btn.ghost { background: transparent; color: var(--accent); padding: .4rem .6rem; }
+.btn.danger { background: var(--danger); }
+.btn.wide { width: 100%; }
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+label.field { display: block; margin-bottom: .9rem; }
+label.field > span { display: block; font-size: .82rem; font-weight: 600; margin-bottom: .3rem; }
+input[type=text], input[type=email], input[type=password], input[type=number], select, textarea {
+  width: 100%; padding: .6rem .8rem; border: 1.5px solid var(--line);
+  border-radius: 9px; font: inherit; background: var(--surface); color: var(--ink);
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { resize: vertical; min-height: 96px; }
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; background: var(--surface);
+        border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; font-size: .87rem; }
+th, td { text-align: left; padding: .6rem .85rem; border-bottom: 1px solid var(--line); }
+th { background: #f8fafc; font-size: .72rem; text-transform: uppercase;
+     letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+tr:last-child td { border-bottom: none; }
+
+/* ── Bits ───────────────────────────────────────────────────────────────── */
+code, .mono { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: .88em; }
+.ref { background: #eef2ff; color: #3730a3; padding: .1rem .4rem; border-radius: 5px; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; }
+.pill { display: inline-block; font-size: .7rem; font-weight: 700; padding: .17rem .5rem; border-radius: 99px; }
+.pill.ok      { background: #d1fae5; color: #065f46; }
+.pill.pending { background: #fef3c7; color: #92400e; }
+.pill.none    { background: #f1f5f9; color: var(--muted); }
+.pill.live    { background: #dbeafe; color: #1e40af; }
+.muted  { color: var(--muted); }
+.empty  { text-align: center; color: var(--muted); padding: 2.25rem 1rem; font-size: .9rem; }
+.row    { display: flex; gap: .6rem; align-items: center; }
+.row.between { justify-content: space-between; }
+.stack  { display: flex; flex-direction: column; gap: .6rem; }
+.crumb  { font-size: .8rem; color: var(--muted); margin-bottom: 1rem; }
+.crumb a { color: var(--accent); text-decoration: none; }
+.crumb a:hover { text-decoration: underline; }
+
+/* ── Stat tiles ─────────────────────────────────────────────────────────── */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .7rem; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: .8rem .9rem; }
+.stat .n { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; }
+.stat .l { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; margin-top: .1rem; }
+
+@media (max-width: 560px) {
+  body { padding: 1.1rem .8rem 3rem; }
+  header.page h1 { font-size: 1.35rem; }
+  /* Wide tables scroll inside themselves rather than widening the whole page. */
+  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

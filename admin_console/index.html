@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Try for Tomorrow — Admin Console</title>
+<link rel="stylesheet" href="../demo-theme.css">
+<style>
+  body { background:#0f172a; padding-top:4rem; }
+  .admin-bar { position:fixed; top:0; left:0; right:0; height:46px; background:#0b1220;
+               border-bottom:1px solid #1e293b; color:#cbd5e1; font-size:.85rem;
+               display:flex; align-items:center; gap:1rem; padding:0 1.1rem; z-index:50; }
+  .admin-bar .brand { font-weight:700; color:#fff; display:flex; align-items:center; gap:.45rem; }
+  .admin-bar .spacer { flex:1; }
+  .admin-bar a { color:#60a5fa; text-decoration:none; }
+  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
+  @media (max-width:640px){ .admin-bar { gap:.6rem; font-size:.78rem; } #ab-user { display:none; } }
+  header.page h1 { color:#e2e8f0; }
+  header.page p.sub { color:#94a3b8; }
+  h2.section { color:#94a3b8; }
+  .login-shell { max-width:400px; margin:5vh auto; }
+  .totals-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:.55rem; }
+  .stotal { background:#1e293b; border:1px solid #334155; border-radius:11px;
+            padding:.7rem .5rem; text-align:center; }
+  .stotal .s { font-size:.62rem; text-transform:uppercase; letter-spacing:.07em;
+               color:#94a3b8; font-weight:700; }
+  .stotal .n { font-size:1.4rem; font-weight:700; color:#fff; line-height:1.2; }
+  .stotal .r { font-size:.66rem; color:#64748b; }
+  .sess-cell { text-align:center; }
+  .hidden { display:none !important; }
+  .pledge { border:1px solid var(--line); border-radius:11px; padding:.75rem .9rem; background:#fff; }
+  .pledge .top { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-bottom:.35rem; }
+  .pledge .txt { font-size:.9rem; }
+  tr.clickable { cursor:pointer; }
+  tr.clickable:hover td { background:#f8fafc; }
+  @media (max-width:700px){ .totals-grid { grid-template-columns:repeat(3,1fr); } }
+</style>
+</head>
+<body>
+
+<div class="admin-bar">
+  <span class="brand">◆ Try for Tomorrow Admin</span>
+  <span class="spacer"></span>
+  <span id="ab-user"></span>
+  <a href="#" id="ab-signout" class="hidden">Sign out</a>
+  <a href="../index.html">← Demo home</a>
+</div>
+
+<div id="app"></div>
+
+<template id="v-login">
+  <div class="login-shell">
+    <div class="card">
+      <header class="page" style="margin-bottom:1rem">
+        <div class="eyebrow">Admin Console</div>
+        <h1 style="color:var(--ink);font-size:1.3rem">Sign in</h1>
+      </header>
+      <label class="field"><span>Email</span><input type="email" id="lg-email" placeholder="admin@local"></label>
+      <label class="field"><span>Password</span><input type="password" id="lg-pass" placeholder="admin"></label>
+      <button class="btn" id="lg-go" style="width:100%">Sign in</button>
+      <div id="lg-err" class="hidden" style="color:#dc2626;font-size:.83rem;margin-top:.6rem"></div>
+      <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@local</code> / <code>admin</code></p>
+    </div>
+  </div>
+</template>
+
+<template id="v-dash">
+  <div class="wrap">
+    <header class="page">
+      <div class="eyebrow">Programme overview</div>
+      <h1>All Providers</h1>
+      <p class="sub">Totals across every educational provider, per session.</p>
+    </header>
+    <h2 class="section">All-provider totals by session</h2>
+    <div class="totals-grid" id="da-totals"></div>
+    <h2 class="section">Providers</h2>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th>Provider</th><th class="sess-cell">S1</th><th class="sess-cell">S2</th>
+        <th class="sess-cell">S3</th><th class="sess-cell">S4</th><th class="sess-cell">S5</th>
+        <th class="sess-cell">S6</th><th class="sess-cell">Pledges</th>
+      </tr></thead>
+      <tbody id="da-providers"></tbody>
+    </table></div>
+    <p class="muted" style="font-size:.78rem;margin-top:.6rem">
+      Each cell is how many times that provider has delivered that session. Click a row to drill in.
+    </p>
+  </div>
+</template>
+
+<template id="v-provider">
+  <div class="wrap">
+    <div class="crumb"><a href="#" id="pv-back">← All providers</a></div>
+    <header class="page">
+      <div class="eyebrow" id="pv-eyebrow"></div>
+      <h1 id="pv-name"></h1>
+      <p class="sub" id="pv-contact"></p>
+    </header>
+    <h2 class="section">Sessions</h2>
+    <div class="stack" id="pv-sessions"></div>
+  </div>
+</template>
+
+<template id="v-run">
+  <div class="wrap">
+    <div class="crumb"><a href="#" id="rv-back">← Provider</a></div>
+    <header class="page">
+      <div class="eyebrow" id="rv-eyebrow"></div>
+      <h1 id="rv-title"></h1>
+      <p class="sub" id="rv-sub"></p>
+    </header>
+    <div class="emulation-note">
+      <strong>Pseudonymous by design.</strong> Pledges are identified only by <code>student_ref</code>.
+      This console cannot resolve a ref to a person — that mapping exists solely inside the provider's
+      WordPress account. That is the privacy boundary working as intended, not missing data.
+    </div>
+    <div class="stack" id="rv-pledges"></div>
+  </div>
+</template>
+
+<script type="module" src="./admin-app.js"></script>
+</body>
+</html>
