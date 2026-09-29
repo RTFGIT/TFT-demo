@@ -59,8 +59,8 @@ export const WP_ROUTES = {
 
 // ─── Seed ────────────────────────────────────────────────────────────────────
 const WP_USERS = [
-  { email: 'alex@democollege.ac.uk', password: 'demo', display_name: 'Alex Facilitator', provider_id: 'demo-college', provider_name: 'Demo College' },
-  { email: 'sam@demoacademy.ac.uk',  password: 'demo', display_name: 'Sam Coordinator',  provider_id: 'demo-academy', provider_name: 'Demo Academy' }
+  { email: 'alex@democollege.ac.uk', password: 'tftdemo', display_name: 'Alex Facilitator', provider_id: 'demo-college', provider_name: 'Demo College' },
+  { email: 'sam@demoacademy.ac.uk',  password: 'tftdemo', display_name: 'Sam Coordinator',  provider_id: 'demo-academy', provider_name: 'Demo Academy' }
 ];
 
 (function seed() {

@@ -29,7 +29,7 @@
 import {
   initializeApp, getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
   collection, onSnapshot, increment, serverTimestamp, runTransaction
-} from '../local-firebase.js';
+} from '../data-layer.js';
 import { sessionByNumber, isValidSession, isStudentRef, OWN_SUGGESTION_INDEX } from './session-config.js';
 
 const app = initializeApp({ projectId: 'tft26-local' });

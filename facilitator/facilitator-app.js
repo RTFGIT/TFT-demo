@@ -44,8 +44,9 @@ import {
 } from '../wp-emulator.js';
 import {
   initializeApp, getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
-  collection, getDocs, serverTimestamp, runTransaction, increment
-} from '../local-firebase.js';
+  collection, getDocs, serverTimestamp, runTransaction, increment,
+  getAuth, signInWithEmailAndPassword, signOut, MODE, currentUser
+} from '../data-layer.js';
 import { SESSION_COUNT, EXPECTED_GROUPS } from '../public_widget/session-config.js';
 
 const app = initializeApp({ projectId: 'tft26-local' });
@@ -120,16 +121,30 @@ function viewLogin() {
   show('v-login');
   $('li-accounts').innerHTML = wpAccounts().map(a =>
     `<tr><td><code>${esc(a.email)}</code></td><td><code>${esc(a.password)}</code></td><td>${esc(a.provider)}</td></tr>`).join('');
-  const go = () => {
+  const go = async () => {
+    const email = $('li-email').value.trim(), password = $('li-pass').value;
     try {
-      user = wpSignIn($('li-email').value.trim(), $('li-pass').value);
-      setChrome();
-      go2(H.cohorts());
+      user = wpSignIn(email, password);
     } catch {
-      $('li-err').textContent = 'Those credentials were not recognised.';
-      $('li-err').classList.remove('hidden');
+      return loginError('Those credentials were not recognised.');
     }
+    // LIVE: also sign in to Firebase as this facilitator. The Firebase account
+    // carries the `provider` claim the security rules check on every write.
+    // (Stand-in for the production /firebase-token hand-off in WORDPRESS_BUILD.md.)
+    if (MODE === 'live') {
+      try { await signInWithEmailAndPassword(getAuth(), email, password); }
+      catch (e) {
+        wpSignOut(); user = null;
+        return loginError('Live mode: could not sign in to the shared database (' + (e.code || e.message) + ').');
+      }
+    }
+    setChrome();
+    go2(H.cohorts());
   };
+  function loginError(msg) {
+    $('li-err').textContent = msg;
+    $('li-err').classList.remove('hidden');
+  }
   $('li-go').addEventListener('click', go);
   $('li-pass').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
 }
@@ -558,6 +573,12 @@ function route() {
   user = wpCurrentUser();
   setChrome();
   if (!user) { if (location.hash !== '#/login') return go2(H.login()); return viewLogin(); }
+  // LIVE needs a Firebase session too. If it's missing (e.g. they signed in while
+  // in Sandbox, then switched), sign out of the emulated WordPress and start again.
+  if (MODE === 'live' && !currentUser()) {
+    wpSignOut(); user = null; setChrome();
+    return location.hash === '#/login' ? viewLogin() : go2(H.login());
+  }
 
   const h = location.hash || '';
   const mSession = h.match(/^#\/cohort\/([^/]+)\/session\/(\d+)(?:\/(video|pledge|complete))?$/);
@@ -584,8 +605,13 @@ function route() {
 $('wp-signout').addEventListener('click', (e) => {
   e.preventDefault();
   wpSignOut(); activeRun.clear(); user = null;
+  if (MODE === 'live') signOut(getAuth());
   go2(H.login());
 });
+
+const modePill = $('wp-mode');
+modePill.textContent = MODE === 'live' ? 'LIVE' : 'SANDBOX';
+modePill.classList.toggle('live', MODE === 'live');
 
 window.addEventListener('hashchange', route);
 route();

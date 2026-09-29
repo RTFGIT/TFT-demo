@@ -18,6 +18,9 @@
             color:#c3c4c7; font-size:.78rem; display:flex; align-items:center;
             gap:1rem; padding:0 1rem; z-index:50; }
   .wp-bar .brand { font-weight:700; color:#fff; }
+  .mode-pill { font-size:.66rem; font-weight:700; padding:.08rem .45rem; border-radius:99px; background:#d1fae5; color:#065f46; }
+  .mode-pill.live { background:#dbeafe; color:#1e40af; }
+
   .wp-bar .spacer { flex:1; }
   .wp-bar a { color:#72aee6; text-decoration:none; }
   .wp-bar a:hover { text-decoration:underline; }
@@ -104,6 +107,7 @@
 
 <div class="wp-bar">
   <span class="brand">⊞ tryfortomorrow.org</span>
+  <span class="mode-pill" id="wp-mode"></span>
   <span class="route" id="wp-route"></span>
   <span class="spacer"></span>
   <span id="wp-user"></span>
@@ -123,7 +127,7 @@
     </header>
     <div class="card">
       <label class="field"><span>Email</span><input type="email" id="li-email" placeholder="alex@democollege.ac.uk"></label>
-      <label class="field"><span>Password</span><input type="password" id="li-pass" placeholder="demo"></label>
+      <label class="field"><span>Password</span><input type="password" id="li-pass" placeholder="tftdemo"></label>
       <button class="btn" id="li-go" style="width:100%">Sign in</button>
       <div id="li-err" class="hidden" style="color:var(--danger);font-size:.83rem;margin-top:.6rem"></div>
     </div>

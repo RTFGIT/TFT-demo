@@ -193,7 +193,8 @@ frame.contentWindow.postMessage({
   function push(s) { lines.unshift(s); log.textContent = lines.slice(0, 6).join('\n'); }
 
   // Point the iframe at the REAL widget with demo routing context (no name in the URL).
-  frame.src = 'public_widget/pledge-widget.html?provider=demo-college&session=1&run=embed-demo&cohort=demo';
+  // mode_once=sandbox: this explainer always runs offline, whatever mode the visitor chose.
+  frame.src = 'public_widget/pledge-widget.html?provider=demo-college&session=1&run=embed-demo&cohort=demo&mode_once=sandbox';
 
   frame.addEventListener('load', () => {
     // Hand the widget a demo student — exactly as a WordPress page would.

@@ -18,6 +18,10 @@
   .divider { display:grid; place-items:center; color:var(--muted); font-size:.9rem; font-weight:700; }
   @media (max-width:720px){ .boundary { grid-template-columns:1fr; }
                             .divider { transform:rotate(90deg); padding:.2rem 0; } }
+  .mode-badge.live { background:#dbeafe; color:#1e40af; }
+  .mode-switch { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; margin-top:.6rem; font-size:.82rem; }
+  .mode-switch .btn { padding:.35rem .8rem; font-size:.8rem; }
+  .mode-switch .btn[aria-pressed="true"] { pointer-events:none; }
   .mode-badge { display:inline-block; margin-left:.5rem; padding:.1rem .5rem; border-radius:99px;
                 background:#d1fae5; color:#065f46; font-size:.66rem; letter-spacing:.04em; vertical-align:1px; }
   .card.intro { font-size:.9rem; line-height:1.6; margin-bottom:1rem; }
@@ -29,7 +33,7 @@
 <div class="wrap">
 
   <header class="page">
-    <div class="eyebrow">RTFxRFL <span class="mode-badge" title="Sandbox mode">● Sandbox</span></div>
+    <div class="eyebrow">RTFxRFL <span class="mode-badge" id="mode-badge">● Sandbox</span></div>
     <h1>Try for Tomorrow — Working Demo</h1>
     <p class="sub">An interactive walkthrough of the Try for Tomorrow pledge tool.</p>
   </header>
@@ -47,11 +51,25 @@
     </div>
   </div>
 
-  <div class="emulation-note">
+  <div class="emulation-note" id="note-sandbox">
     <strong>Sandbox mode — your own private copy.</strong> Everything runs inside your browser:
     nothing you type is sent anywhere, and no one else can see it. The website and database are
     simulated so the whole flow works without accounts. It's safe to experiment, and
     <em>Reset all demo data</em> at the bottom starts you fresh.
+    <div class="mode-switch"><span>Mode:</span>
+      <button class="btn" aria-pressed="true">Sandbox</button>
+      <button class="btn secondary" data-mode="live">Switch to Live</button>
+      <span class="muted" id="live-unavailable" hidden>Live mode isn't configured yet.</span></div>
+  </div>
+  <div class="emulation-note" id="note-live" hidden style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a">
+    <strong>Live mode — a shared demo database.</strong> Pledges and totals are saved to a real
+    Firebase database and appear on every device in Live mode, so a pledge made on a phone shows up
+    on the admin console on a laptop. <strong>Student names still never leave this browser</strong>: the
+    roster stays here, and only a pseudonymous ID is shared. Everything in Live mode is visible to anyone
+    else using the demo, so please don't type real names into pledges.
+    <div class="mode-switch"><span>Mode:</span>
+      <button class="btn secondary" data-mode="sandbox">Switch to Sandbox</button>
+      <button class="btn" aria-pressed="true">Live</button></div>
   </div>
 
   <h2 class="section">Pathways</h2>
@@ -61,14 +79,14 @@
       <div class="d"><strong>Stands in for WordPress.</strong> Sign in, set up cohorts &amp; groups, then work
         through a session: details → video → collect pledges. In production these are WordPress pages, not
         uploaded HTML. The pledge screen embeds the widget in a labelled frame.</div>
-      <div class="meta">alex@democollege.ac.uk · demo</div>
+      <div class="meta">alex@democollege.ac.uk · tftdemo</div>
     </a>
 
     <a class="card lead" href="admin_console/index.html">
       <div class="t">◆ Admin console</div>
       <div class="d">See every provider, whether each session has ever been delivered and how many times,
         the pledges captured in each run, and the All-Providers totals per session.</div>
-      <div class="meta">admin@local · admin</div>
+      <div class="meta">admin@tft-demo.example · tftadmin</div>
     </a>
 
     <a class="card lead" href="integration.html">
@@ -138,9 +156,9 @@
   <table>
     <thead><tr><th>Where</th><th>Email</th><th>Password</th><th>Role</th></tr></thead>
     <tbody>
-      <tr><td>Facilitator site</td><td><code>alex@democollege.ac.uk</code></td><td><code>demo</code></td><td>Demo College</td></tr>
-      <tr><td>Facilitator site</td><td><code>sam@demoacademy.ac.uk</code></td><td><code>demo</code></td><td>Demo Academy</td></tr>
-      <tr><td>Admin console</td><td><code>admin@local</code></td><td><code>admin</code></td><td>Full access</td></tr>
+      <tr><td>Facilitator site</td><td><code>alex@democollege.ac.uk</code></td><td><code>tftdemo</code></td><td>Demo College</td></tr>
+      <tr><td>Facilitator site</td><td><code>sam@demoacademy.ac.uk</code></td><td><code>tftdemo</code></td><td>Demo Academy</td></tr>
+      <tr><td>Admin console</td><td><code>admin@tft-demo.example</code></td><td><code>tftadmin</code></td><td>Full access</td></tr>
     </tbody>
   </table>
 
@@ -158,6 +176,18 @@
 <script type="module">
   import './local-firebase.js';
   import './wp-emulator.js';
+  import { MODE, LIVE_UNAVAILABLE } from './data-layer.js';
+
+  // Mode badge, note and switch.
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = MODE === 'live' ? '● Live' : '● Sandbox';
+  badge.classList.toggle('live', MODE === 'live');
+  document.getElementById('note-sandbox').hidden = MODE === 'live';
+  document.getElementById('note-live').hidden = MODE !== 'live';
+  document.getElementById('live-unavailable').hidden = !LIVE_UNAVAILABLE;
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+    location.href = location.pathname + '?mode=' + b.dataset.mode;
+  }));
 
   document.getElementById('check').addEventListener('click', () => {
     const out = document.getElementById('check-out');

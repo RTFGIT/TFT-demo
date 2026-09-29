@@ -17,7 +17,7 @@
 import {
   initializeApp, getFirestore, getAuth, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, doc, getDoc, getDocs, collection, updateDoc, query, orderBy
-} from '../local-firebase.js';
+, MODE } from '../data-layer.js';
 import { SESSION_COUNT } from '../public_widget/session-config.js';
 
 const app  = initializeApp({ projectId: 'tft26-local' });
@@ -25,6 +25,9 @@ const db   = getFirestore(app);
 const auth = getAuth(app);
 
 const appEl = document.getElementById('app');
+const modePill = document.getElementById('ab-mode');
+modePill.textContent = MODE === 'live' ? 'LIVE' : 'SANDBOX';
+modePill.classList.toggle('live', MODE === 'live');
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));

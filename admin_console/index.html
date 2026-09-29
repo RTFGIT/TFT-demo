@@ -14,6 +14,9 @@
   .admin-bar .brand { font-weight:700; color:#fff; display:flex; align-items:center; gap:.45rem; }
   .admin-bar .spacer { flex:1; }
   .admin-bar a { color:#60a5fa; text-decoration:none; }
+  .mode-pill { font-size:.66rem; font-weight:700; padding:.08rem .45rem; border-radius:99px; background:#d1fae5; color:#065f46; }
+  .mode-pill.live { background:#dbeafe; color:#1e40af; }
+
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
   @media (max-width:640px){ .admin-bar { gap:.6rem; font-size:.78rem; } #ab-user { display:none; } }
   header.page h1 { color:#e2e8f0; }
@@ -41,6 +44,7 @@
 
 <div class="admin-bar">
   <span class="brand">◆ Try for Tomorrow Admin</span>
+  <span class="mode-pill" id="ab-mode"></span>
   <span class="spacer"></span>
   <span id="ab-user"></span>
   <a href="#" id="ab-signout" class="hidden">Sign out</a>
@@ -56,11 +60,11 @@
         <div class="eyebrow">Admin Console</div>
         <h1 style="color:var(--ink);font-size:1.3rem">Sign in</h1>
       </header>
-      <label class="field"><span>Email</span><input type="email" id="lg-email" placeholder="admin@local"></label>
-      <label class="field"><span>Password</span><input type="password" id="lg-pass" placeholder="admin"></label>
+      <label class="field"><span>Email</span><input type="email" id="lg-email" placeholder="admin@tft-demo.example"></label>
+      <label class="field"><span>Password</span><input type="password" id="lg-pass" placeholder="tftadmin"></label>
       <button class="btn" id="lg-go" style="width:100%">Sign in</button>
       <div id="lg-err" class="hidden" style="color:#dc2626;font-size:.83rem;margin-top:.6rem"></div>
-      <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@local</code> / <code>admin</code></p>
+      <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@tft-demo.example</code> / <code>tftadmin</code></p>
     </div>
   </div>
 </template>

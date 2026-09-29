@@ -195,7 +195,7 @@ export class ReCaptchaEnterpriseProvider { constructor() {} }
 // human in the room.
 const LS_USERS = 'tft26_localusers_v1';
 const SEED_USERS = [
-  { uid: 'admin-local',       email: 'admin@local',       password: 'admin',       claims: { admin: true } },
+  { uid: 'admin-local',       email: 'admin@tft-demo.example', password: 'tftadmin', claims: { admin: true } },
   { uid: 'facilitator-local', email: 'facilitator@local', password: 'facilitator', claims: { provider: 'demo-college' } },
   // Capture-device account — locked down: can ONLY run the pledge capture page,
   // never the provider dashboard. This is what stays signed in on the shared iPad.
