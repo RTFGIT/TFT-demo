@@ -1,0 +1,45 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   worksheet.css — shared styles for the projector pages (session-N.html).
+
+   Used both when a page is opened on its own and when the facilitator portal
+   shows it (the portal loads this file and puts the page's <main> inside its
+   projector view). Sizes scale with the screen so a projected page reads from
+   the back of a room; print gives plain black on white.
+   ─────────────────────────────────────────────────────────────────────────── */
+.worksheet {
+  font-family: var(--font-body, system-ui, sans-serif);
+  color: var(--ink, #111);
+  font-size: clamp(1.15rem, 1.9vw, 1.85rem);
+  line-height: 1.35;
+  max-width: 1300px; margin: 0 auto;
+  padding: clamp(1.2rem, 3vw, 3rem) clamp(1rem, 4vw, 4rem) 4rem;
+}
+body:has(> .worksheet) { margin: 0; background: var(--bg, #fff); }
+
+.worksheet .ws-eyebrow { font-size: .7em; text-transform: uppercase; letter-spacing: .1em; font-weight: 800;
+  color: var(--muted, #666); margin: 0; }
+.worksheet h1 { font-family: var(--font-display, sans-serif); font-weight: var(--display-weight, 700);
+  text-transform: var(--display-case, none); letter-spacing: var(--display-track, 0);
+  font-size: 2.4em; line-height: 1; color: var(--accent-strong, #333); margin: .1em 0 .5em; }
+.worksheet h2 { font-size: 1em; margin: 1em 0 .4em; }
+
+.worksheet .steps { margin: 0 0 0 1.3em; padding: 0; display: flex; flex-direction: column; gap: .35em; }
+
+/* Word cards → matching exercise: letters on the left, shuffled numbered
+   definitions on the right; .ans shows each letter's number when revealed. */
+.worksheet .match { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1.2em 2em; margin-top: .6em; }
+.worksheet .match ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5em; }
+.worksheet .match li { border: 2px solid var(--line, #ddd); border-radius: var(--radius, 8px); padding: .45em .7em;
+  background: var(--surface, #fff); line-height: 1.3; }
+.worksheet .match .terms li { font-weight: 800; display: flex; justify-content: space-between; gap: .5em; }
+.worksheet .k { font-family: var(--font-display, sans-serif); color: var(--accent-strong, #333); margin-right: .4em; }
+.worksheet .ans { visibility: hidden; font-family: var(--font-display, sans-serif); color: var(--accent-ink, #fff);
+  background: var(--accent, #333); border-radius: 6px; padding: 0 .35em; }
+.show-answers .worksheet .ans { visibility: visible; }
+@media (max-width: 700px) { .worksheet .match { grid-template-columns: 1fr; } }
+
+@media print {
+  body:has(> .worksheet) { background: #fff; }
+  .worksheet { font-size: 14pt; max-width: none; padding: 0; }
+  .worksheet .match li { break-inside: avoid; }
+}

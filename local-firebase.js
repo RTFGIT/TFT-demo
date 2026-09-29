@@ -324,6 +324,7 @@ export function onAuthStateChanged(auth, cb) {
       const rbase = base + '/runs/' + r.id;
       store[rbase] = {
         session: r.session, cohort_id: r.cohort_id, group_id: r.group_id, status: r.status,
+        physical_done: !!r.physical_done,
         pledge_count: r.pledge_count, started_at: ts(r.started_at), ended_at: ts(r.ended_at)
       };
       for (const pl of r.pledges) {

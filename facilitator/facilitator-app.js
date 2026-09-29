@@ -48,6 +48,7 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, MODE, currentUser
 } from '../data-layer.js';
 import * as sessionConfig from '../public_widget/session-config.js';
+import { listSessionDocs, versionUrl, projectorPagePath } from '../doc-store.js';
 const { SESSION_COUNT, EXPECTED_GROUPS, OWN_SUGGESTION_INDEX } = sessionConfig;
 // Read defensively: a browser holding a cached older session-config.js (GitHub
 // Pages caches for ~10 min after a deploy) must not stop the portal loading.
@@ -75,6 +76,9 @@ const withG = (hash, g) => g ? `${hash}?g=${encodeURIComponent(g)}` : hash;
 const H = {
   login:    ()         => '#/login',
   dashboard:()         => '#/dashboard',
+  documents:()         => '#/documents',
+  videos:   ()         => '#/videos',
+  worksheet:(n, print) => `#/worksheet/${n}${print ? '?print=1' : ''}`,
   cohort:   (c)        => `#/cohort/${c}`,
   sessions: (c, g)     => withG(`#/cohort/${c}/sessions`, g),
   detail:   (c, n, g)  => withG(`#/cohort/${c}/session/${n}`, g),
@@ -113,9 +117,55 @@ function setChrome() {
   $('wp-route').textContent = permalinkForHash(location.hash || '');
 }
 function show(templateId) {
+  document.body.classList.toggle('projector', templateId === 'v-worksheet');
   appEl.innerHTML = '';
   appEl.appendChild(document.getElementById(templateId).content.cloneNode(true));
   setChrome();
+}
+
+/**
+ * A video player for a session's physical task — built only when the facilitator
+ * asks for it (nothing loads or plays until then). YouTube and Vimeo links become
+ * their privacy-friendly embeds; anything else is treated as a video file.
+ */
+function videoEmbed(url) {
+  if (!url) return '<div class="none">Video to be added</div>';
+  const yt = url.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{11})/);
+  if (yt) return `<iframe src="https://www.youtube-nocookie.com/embed/${yt[1]}" title="Physical task video" allow="fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vm) return `<iframe src="https://player.vimeo.com/video/${vm[1]}" title="Physical task video" allow="fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+  return `<video src="${esc(url)}" controls preload="metadata"></video>`;
+}
+/** Show / hide a video box; the player is removed when hidden so it stops. */
+function wireVideoToggle(btn, box, url) {
+  btn.addEventListener('click', () => {
+    const open = box.classList.contains('hidden');
+    box.innerHTML = open ? videoEmbed(url) : '';
+    box.classList.toggle('hidden', !open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? 'Hide video' : 'Watch video';
+  });
+}
+/**
+ * The worksheet PDF to download for a session: the current version listed in
+ * worksheets/manifest.json (doc-store.js), or null if none has been added yet.
+ * Pass `docs` (from listSessionDocs) when resolving several at once.
+ */
+async function worksheetLink(page, docs) {
+  docs = docs || await listSessionDocs();
+  const cur = docs[String(page.n)]?.current;
+  const url = versionUrl(cur);
+  return url ? { url, name: cur.name, version: cur.version, added: cur.added } : null;
+}
+async function setDownload(a, page) {
+  a.setAttribute('aria-disabled', 'true');
+  const link = await worksheetLink(page);
+  if (link) {
+    a.href = link.url; a.setAttribute('download', link.name); a.removeAttribute('aria-disabled');
+    a.textContent = a.dataset.label || 'Download worksheet';
+  } else {
+    a.removeAttribute('href'); a.textContent = 'Download (file to be added)';
+  }
 }
 
 /** "Term: definition" items get the term in bold (e.g. the Match Time cards). */
@@ -655,7 +705,7 @@ async function viewSessions(cid, gParam) {
                  : cell.state === 'next' ? '<span class="pill next">Next up</span>'
                  : cell.state === 'done' ? '<span class="pill ok">Delivered</span>'
                  : '<span class="pill none">Not yet</span>';
-      const sub = cell.state === 'done' ? `Delivered ${fmtDay(r.started_at?.seconds)} · ${plural(r.pledge_count || 0, 'pledge')}`
+      const sub = cell.state === 'done' ? `Delivered ${fmtDay(r.started_at?.seconds)} · ${plural(r.pledge_count || 0, 'pledge')} · physical task ${r.physical_done ? 'done' : 'not done'}`
                 : cell.state === 'live' ? 'Being delivered now'
                 : 'Not yet delivered';
       return `<a class="session-row ${cell.state === 'done' ? 'done' : ''} ${cell.state === 'next' ? 'next' : ''}" href="${H.detail(cid, cell.n, gid)}">
@@ -803,8 +853,24 @@ function viewVideo(cid, n) {
   $('vd-questions').innerHTML  = (page.film?.questions || []).map(q => `<li>${esc(q)}</li>`).join('');
   $('vd-classroom').textContent      = page.classroom?.title || '';
   $('vd-classroom-body').innerHTML   = renderBlocks(page.classroom?.blocks);
+  $('vd-ws-view').setAttribute('href', H.worksheet(n));
+  setDownload($('vd-ws-download'), page);
   $('vd-physical').textContent       = page.physical?.title || '';
   $('vd-physical-body').innerHTML    = renderBlocks(page.physical?.blocks);
+  // Video hidden by default — it may not suit every classroom.
+  wireVideoToggle($('vd-pv-toggle'), $('vd-pv'), page.physical_video);
+  // Did the group do the physical task? Saved with the run when pledges start;
+  // if the run already exists (came back to this page), it updates it.
+  $('vd-physical-done').checked = !!run.physical;
+  $('vd-physical-done').addEventListener('change', async (e) => {
+    const cur = activeRun.get();
+    if (!cur) return;
+    activeRun.set({ ...cur, physical: e.target.checked });
+    if (cur.runId) {
+      try { await updateDoc(doc(db, 'providers', pid, 'runs', cur.runId), { physical_done: e.target.checked }); }
+      catch (err) { console.error('[TFT26] could not update physical_done', err); }
+    }
+  });
   $('vd-question').textContent = page.question;
   $('vd-citizen').textContent  = page.citizen || '';
   if (page.video_url) $('vd-videonote').textContent = page.video_url;
@@ -853,7 +919,8 @@ async function openRun() {
   await mirrorCohort(pid, cid);                  // labels + pseudonymous slots, never names
   const ref = await addDoc(collection(db, 'providers', pid, 'runs'), {
     session: n, cohort_id: cid, group_id: groupId,
-    status: 'open', pledge_count: 0, started_at: serverTimestamp(), ended_at: null
+    status: 'open', pledge_count: 0, started_at: serverTimestamp(), ended_at: null,
+    physical_done: !!run.physical
   });
 
   // session_stats is a NESTED map — increment() would replace the whole map and
@@ -1014,6 +1081,13 @@ async function viewComplete(cid, n) {
   $('cp-pledges').textContent = (last.done || []).length;
   $('cp-of').textContent      = total;
   $('cp-own').textContent     = '–';
+  $('cp-physical-title').textContent = page?.physical?.title ? `· ${page.physical.title}` : '';
+  $('cp-physical-done').checked = !!last.physical;
+  $('cp-physical-done').disabled = !last.runId;
+  $('cp-physical-done').addEventListener('change', async (e) => {
+    try { await updateDoc(doc(db, 'providers', pid, 'runs', last.runId), { physical_done: e.target.checked }); }
+    catch (err) { console.error('[TFT26] could not update physical_done', err); e.target.checked = !e.target.checked; }
+  });
   $('cp-cohorts').addEventListener('click', () => go2(H.dashboard()));
   $('cp-back').addEventListener('click', () => go2(H.sessions(cid, last.groupId)));
 
@@ -1061,6 +1135,136 @@ async function viewComplete(cid, n) {
   }
 }
 
+// ═══ RESOURCES — Document hub, physical activity videos, worksheet view ════
+async function viewDocuments() {
+  show('v-documents');
+  const docs = await listSessionDocs();
+  const links = await Promise.all(wpSessionPages().map(p => worksheetLink(p, docs)));
+  if (!$('dh-list')) return;                                  // navigated away while loading
+  $('dh-list').innerHTML = wpSessionPages().map((p, i) => {
+    const link = links[i];
+    const file = link?.url;
+    const ver = link?.version ? ` · PDF v${link.version}${link.added ? ', updated ' + fmtDay(Math.floor(Date.parse(link.added) / 1000)) : ''}` : '';
+    return `<div class="card doc-row">
+      <div class="num">${p.n}</div>
+      <div class="grow">
+        <div class="ttl">${esc(p.classroom?.title || 'Classroom task')}</div>
+        <div class="sub">Session ${p.n} · ${esc(p.title)}${p.worksheet ? ' · ' + esc(p.worksheet) : ''}${esc(ver)}</div>
+      </div>
+      <div class="acts">
+        <a class="btn secondary" href="${H.worksheet(p.n)}">View</a>
+        <a class="btn secondary" href="${H.worksheet(p.n, true)}">Print</a>
+        ${file ? `<a class="btn" href="${esc(file)}" download="${esc(link.name)}">Download</a>`
+               : '<span class="pill none" title="The downloadable file hasn’t been added yet">File to be added</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewVideos() {
+  show('v-videos');
+  $('pv-list').innerHTML = wpSessionPages().map(p => `
+    <div class="card">
+      <div class="doc-row">
+        <div class="num">${p.n}</div>
+        <div class="grow">
+          <div class="ttl">${esc(p.physical?.title || 'Physical task')}</div>
+          <div class="sub">Session ${p.n} · ${esc(p.title)}</div>
+        </div>
+        <div class="acts"><button class="btn secondary" data-pv="${p.n}" aria-expanded="false">Watch video</button></div>
+      </div>
+      <div class="pvideo hidden" id="pv-${p.n}" style="margin-top:.8rem"></div>
+      <details style="margin-top:.4rem"><summary class="muted" style="cursor:pointer;font-size:.85rem">How to run it</summary>${renderBlocks(p.physical?.blocks)}</details>
+    </div>`).join('');
+  appEl.querySelectorAll('[data-pv]').forEach(b =>
+    wireVideoToggle(b, $('pv-' + b.dataset.pv), wpSessionPage(Number(b.dataset.pv))?.physical_video));
+}
+
+/**
+ * A session's projector page: worksheets/html/session-N.html — a standalone
+ * file (holder now, final version later) whose <main class="worksheet"> is shown
+ * here. Relative links/images in it are re-pointed so they still resolve. If the
+ * file can't be loaded, the page is built from the session content instead.
+ */
+async function projectorPage(n, page) {
+  const url = new URL('../' + projectorPagePath(n), location.href);
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(res.status);
+    const d = new DOMParser().parseFromString(await res.text(), 'text/html');
+    const main = d.querySelector('main.worksheet');
+    if (!main) throw new Error('no <main class="worksheet">');
+    main.querySelectorAll('[src],[href]').forEach(el => {
+      for (const attr of ['src', 'href']) {
+        const v = el.getAttribute(attr);
+        if (v && !/^(#|[a-z]+:|\/)/i.test(v)) el.setAttribute(attr, new URL(v, url).href);
+      }
+    });
+    return main.outerHTML;
+  } catch (e) {
+    console.warn('[TFT26] projector page unavailable, building from session content', e);
+    return worksheetFromContent(n, page);
+  }
+}
+
+/** Fallback: the worksheet built from session-config.js (same as the holders). */
+function worksheetFromContent(n, page) {
+  const shuffled = (len) => {
+    let r = (2463534242 ^ (n * 99991)) >>> 0;
+    const rnd = () => { r ^= r << 13; r >>>= 0; r ^= r >>> 17; r ^= r << 5; r >>>= 0; return r / 4294967296; };
+    const order = Array.from({ length: len }, (_, i) => i);
+    for (let i = len - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    for (let k = 0; k < len && order.some((v, p) => v === p); k++) order.push(order.shift());
+    return order;
+  };
+  const body = (page.classroom?.blocks || []).map(b => {
+    const pairs = (b.items || []).map(i => String(i).match(/^([A-Z][A-Za-z ’']{1,24}): (.+)$/));
+    const head = b.heading ? `<h2>${esc(b.heading)}</h2>` : '';
+    if (pairs.length >= 3 && pairs.every(Boolean)) {
+      const order = shuffled(pairs.length);
+      return head + `<div class="match">
+        <ol class="terms">${pairs.map((m, i) => `<li><span><span class="k">${String.fromCharCode(65 + i)}</span>${esc(m[1])}</span><span class="ans">${order.indexOf(i) + 1}</span></li>`).join('')}</ol>
+        <ol class="defs">${order.map((i, pos) => `<li><span class="k">${pos + 1}</span>${esc(pairs[i][2].charAt(0).toUpperCase() + pairs[i][2].slice(1))}</li>`).join('')}</ol>
+      </div>`;
+    }
+    return head + `<ol class="steps">${(b.items || []).map(i => `<li>${termify(i)}</li>`).join('')}</ol>`;
+  }).join('');
+  return `<main class="worksheet" data-session="${n}">
+    <p class="ws-eyebrow">Session ${n} · ${esc(page.title)} · Classroom task</p>
+    <h1>${esc(page.classroom?.title || 'Classroom task')}</h1>${body}</main>`;
+}
+
+/**
+ * A session's classroom worksheet, projector-sized. A block of "Term: definition"
+ * cards becomes a matching exercise (letters vs shuffled numbers, answers on a
+ * toggle); anything else is shown as large numbered steps. Prints clean.
+ */
+async function viewWorksheet(n, autoPrint) {
+  const page = wpSessionPage(n);
+  if (!page) return go2(H.dashboard());
+  show('v-worksheet');
+  const html = await projectorPage(n, page);
+  if (!$('ws-page')) return;                                  // navigated away while loading
+  $('ws-page').innerHTML = html;
+  const matching = !!appEl.querySelector('#ws-page .ans');
+  $('ws-answers').classList.toggle('hidden', !matching);
+  $('ws-answers').addEventListener('click', () => {
+    const on = !appEl.querySelector('.ws').classList.contains('show-answers');
+    appEl.querySelector('.ws').classList.toggle('show-answers', on);
+    $('ws-answers').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('ws-answers').textContent = on ? 'Hide answers' : 'Show answers';
+  });
+  $('ws-back').addEventListener('click', e => { e.preventDefault(); history.length > 1 ? history.back() : go2(H.dashboard()); });
+  $('ws-print').addEventListener('click', () => window.print());
+  $('ws-download').dataset.label = 'Download';
+  setDownload($('ws-download'), page);
+  $('ws-full').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.();
+  });
+  if (autoPrint) setTimeout(() => window.print(), 400);
+}
+
 // ═══ ROUTER ══════════════════════════════════════════════════════════════════
 function go2(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 
@@ -1093,6 +1297,10 @@ function route() {
   const mCohort = h.match(/^#\/cohort\/([^/]+)$/);
   if (mCohort) return viewCohort(decodeURIComponent(mCohort[1]));
   if (h === '#/dashboard') return viewDashboard();
+  if (h === '#/documents') return viewDocuments();
+  if (h === '#/videos') return viewVideos();
+  const mSheet = h.match(/^#\/worksheet\/(\d+)$/);
+  if (mSheet) return viewWorksheet(Number(mSheet[1]), new URLSearchParams(q || '').get('print') === '1');
   if (h === '#/cohorts') return go2(H.dashboard());          // old permalink
 
   // Default landing after login: the dashboard.

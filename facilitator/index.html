@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Facilitator Portal</title>
 <link rel="stylesheet" href="../demo-theme.css">
+<link rel="stylesheet" href="../worksheets/html/worksheet.css">
 <!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,600&display=swap">
 <style>
@@ -351,6 +352,52 @@
   .gchip[aria-pressed="true"] { background:var(--g); border-color:var(--g); color:#fff; }
   .gchip[aria-pressed="true"] i { background:#fff; }
 
+  /* ── Worksheets, videos, physical-task capture, resources ────────────── */
+  .part-actions { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin:.2rem 0 .8rem; }
+  .part-actions .btn[aria-disabled="true"] { opacity:.45; pointer-events:none; }
+  .done-check { display:inline-flex; align-items:center; gap:.45rem; font-weight:700; font-size:.9rem; cursor:pointer;
+                padding:.45rem .75rem; border:1.5px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); }
+  .done-check input { width:18px; height:18px; accent-color:var(--accent); }
+  .done-check:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+  .pvideo { margin:0 0 .9rem; }
+  .pvideo iframe, .pvideo video { width:100%; aspect-ratio:16/9; border:0; border-radius:var(--radius); background:#0b1020; display:block; }
+  .pvideo .none { aspect-ratio:16/9; display:grid; place-items:center; border-radius:var(--radius);
+                  background:#0b1020; color:#8a93b2; font-size:.9rem; }
+  .phys-card { display:flex; align-items:center; justify-content:space-between; gap:.8rem; flex-wrap:wrap; }
+
+  .resources { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.6rem; margin-bottom:1rem; }
+  .res { display:flex; align-items:center; gap:.8rem; padding:.75rem .95rem; text-decoration:none; color:var(--ink);
+         background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--pop); border-radius:var(--radius); }
+  .res:hover { border-color:var(--pop); }
+  .res-ic { width:40px; height:40px; flex:0 0 auto; padding:8px; border-radius:var(--radius-sm);
+            background:color-mix(in srgb, var(--pop) 14%, var(--surface)); color:var(--pop); }
+  .res-t { display:flex; flex-direction:column; gap:.1rem; min-width:0; }
+  .res b { font-size:.98rem; }
+  .res span { font-size:.8rem; color:var(--muted); }
+
+  .doc-row { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .doc-row .num { width:40px; height:40px; border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-ink);
+                  display:grid; place-items:center; font-family:var(--font-display); font-size:1.2rem; flex:0 0 auto; }
+  .doc-row .grow { flex:1; min-width:200px; }
+  .doc-row .ttl { font-weight:800; }
+  .doc-row .sub { font-size:.8rem; color:var(--muted); }
+  .doc-row .acts { display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; }
+
+  /* Projector view: full screen, big type, no portal chrome. Prints clean. */
+  body.projector { padding:0; }
+  body.projector .wp-bar { display:none; }
+  .ws { min-height:100vh; background:var(--bg); }
+  .ws-bar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; padding:.7rem 1rem;
+            position:sticky; top:0; z-index:5; background:var(--chrome-bg); }
+  .ws-bar .grow { flex:1; }
+  .ws-bar .btn.secondary { background:rgba(255,255,255,.14); color:var(--chrome-ink); border-color:transparent; }
+  .ws-bar .btn[aria-pressed="true"] { background:var(--chrome-ink); color:var(--chrome-bg); }
+  @media print {
+    body.projector { background:#fff; }
+    .ws-bar { display:none; }
+    .ws { background:#fff; }
+  }
+
   .hidden { display:none !important; }
 </style>
 </head>
@@ -409,6 +456,15 @@
         <input type="text" id="db-new" placeholder="e.g. Year 7 Tag Rugby" aria-label="New cohort name"></label>
       <button class="btn big" id="db-add">Create cohort →</button>
       <button class="btn secondary" id="db-cancel">Cancel</button>
+    </div>
+
+    <div class="resources">
+      <a class="res" href="#/documents">
+        <svg class="res-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
+        <span class="res-t"><b>Document hub</b><span>Worksheets to view, print or download</span></span></a>
+      <a class="res" href="#/videos">
+        <svg class="res-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>
+        <span class="res-t"><b>Physical activity videos</b><span>All six activities</span></span></a>
     </div>
 
     <div class="live-strip" id="db-livestrip"></div>
@@ -572,11 +628,20 @@
 
     <section class="card part" id="part-classroom">
       <div class="part-head"><span class="part-n">2</span><div><div class="part-l">Classroom task</div><h2 class="part-t" id="vd-classroom"></h2></div></div>
+      <div class="part-actions">
+        <a class="btn secondary" id="vd-ws-view" href="#">Worksheet on screen</a>
+        <a class="btn secondary" id="vd-ws-download" href="#" download>Download worksheet</a>
+      </div>
       <div id="vd-classroom-body"></div>
     </section>
 
     <section class="card part" id="part-physical">
       <div class="part-head"><span class="part-n">3</span><div><div class="part-l">Physical task</div><h2 class="part-t" id="vd-physical"></h2></div></div>
+      <div class="part-actions">
+        <button class="btn secondary" id="vd-pv-toggle" aria-expanded="false" aria-controls="vd-pv">Watch video</button>
+        <label class="done-check"><input type="checkbox" id="vd-physical-done"> We did the physical task</label>
+      </div>
+      <div class="pvideo hidden" id="vd-pv"></div>
       <div id="vd-physical-body"></div>
     </section>
 
@@ -642,6 +707,11 @@
       </div>
     </div>
 
+    <div class="card phys-card" style="margin-top:1rem">
+      <div><strong>Physical task</strong> <span class="muted" id="cp-physical-title"></span></div>
+      <label class="done-check"><input type="checkbox" id="cp-physical-done"> Done</label>
+    </div>
+
     <div class="card next-card" style="margin-top:1rem" id="cp-next-card">
       <div class="num" id="cp-next-num">2</div>
       <div style="flex:1;min-width:0">
@@ -655,6 +725,48 @@
       <button class="btn secondary" id="cp-cohorts" style="flex:1">Dashboard</button>
       <button class="btn secondary" id="cp-back" style="flex:1">Back to sessions</button>
     </div>
+  </div>
+</template>
+
+<!-- ══ DOCUMENT HUB ══════════════════════════════════════════════════════ -->
+<template id="v-documents">
+  <div class="wrap">
+    <div class="crumb"><a href="#/dashboard">← Dashboard</a></div>
+    <header class="page">
+      <div class="eyebrow">Resources</div>
+      <h1>Document hub</h1>
+      <p class="sub">Classroom worksheets for all six sessions.</p>
+    </header>
+    <div class="stack" id="dh-list"></div>
+  </div>
+</template>
+
+<!-- ══ PHYSICAL ACTIVITY VIDEOS ══════════════════════════════════════════ -->
+<template id="v-videos">
+  <div class="wrap">
+    <div class="crumb"><a href="#/dashboard">← Dashboard</a></div>
+    <header class="page">
+      <div class="eyebrow">Resources</div>
+      <h1>Physical activity videos</h1>
+      <p class="sub">Videos stay hidden until you choose to play one.</p>
+    </header>
+    <div class="stack" id="pv-list"></div>
+  </div>
+</template>
+
+<!-- ══ WORKSHEET — projector view ════════════════════════════════════════ -->
+<template id="v-worksheet">
+  <div class="ws">
+    <div class="ws-bar">
+      <a href="#" class="btn secondary" id="ws-back">← Back</a>
+      <span class="grow"></span>
+      <button class="btn secondary hidden" id="ws-answers" aria-pressed="false">Show answers</button>
+      <button class="btn secondary" id="ws-print">Print</button>
+      <a class="btn secondary" id="ws-download" href="#" download>Download</a>
+      <button class="btn" id="ws-full">Full screen</button>
+    </div>
+    <!-- The session's projector page (worksheets/html/session-N.html) goes here. -->
+    <div id="ws-page"></div>
   </div>
 </template>
 

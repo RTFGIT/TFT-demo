@@ -40,6 +40,20 @@
   tr.clickable { cursor:pointer; }
   tr.clickable:hover td { background:#f8fafc; }
   @media (max-width:700px){ .totals-grid { grid-template-columns:repeat(3,1fr); } }
+  .ab-nav { display:flex; gap:.2rem; }
+  .ab-nav a { color:#cbd5e1; text-decoration:none; padding:.25rem .6rem; border-radius:6px; font-weight:600; }
+  .ab-nav a:hover, .ab-nav a.on { background:rgba(255,255,255,.12); color:#fff; }
+  .doc-admin .doc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.8rem; margin:.8rem 0; }
+  .doc-admin .lbl { font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; font-weight:800; color:var(--muted); margin-bottom:.2rem; }
+  .doc-admin .val { font-size:.88rem; }
+  .doc-admin .up { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; padding-top:.8rem; border-top:1px solid var(--line); }
+  .doc-admin .up input[type=file] { width:auto; flex:1; min-width:200px; font-size:.85rem; }
+  .doc-admin .msg { font-size:.82rem; font-weight:700; }
+  .doc-admin .msg.err { color:var(--danger); }
+  .doc-admin .msg.ok { color:var(--ok); }
+  .doc-admin details { margin-top:.6rem; font-size:.84rem; }
+  .doc-admin summary { cursor:pointer; color:var(--muted); }
+  .doc-admin details li { margin:.25rem 0 0 1rem; }
 </style>
 </head>
 <body>
@@ -47,6 +61,10 @@
 <div class="admin-bar">
   <span class="brand">Try for Tomorrow admin</span>
   <span class="mode-pill" id="ab-mode"></span>
+  <nav class="ab-nav hidden" id="ab-nav">
+    <a href="#" data-nav="dash">Overview</a>
+    <a href="#" data-nav="docs">Session documents</a>
+  </nav>
   <span class="spacer"></span>
   <span id="ab-user"></span>
   <a href="#" id="ab-signout" class="hidden">Sign out</a>
@@ -68,6 +86,22 @@
       <div id="lg-err" class="hidden" style="color:#dc2626;font-size:.83rem;margin-top:.6rem"></div>
       <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@tft-demo.example</code> / <code>tftadmin</code></p>
     </div>
+  </div>
+</template>
+
+<template id="v-docs">
+  <div class="wrap">
+    <header class="page">
+      <div class="eyebrow">Programme</div>
+      <h1>Session documents</h1>
+      <p class="sub">Facilitators always get the current version of each worksheet.</p>
+    </header>
+    <div class="emulation-note">
+      <strong>Adding a new version.</strong> Worksheets are kept in the project's GitHub repository.
+      Run <code>npm run worksheets:add -- --session 1 --file "path/to/worksheet.pdf"</code>,
+      then commit and publish. Earlier versions are kept.
+    </div>
+    <div class="stack" id="dc-list"><div class="empty">Loading…</div></div>
   </div>
 </template>
 

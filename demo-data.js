@@ -25,7 +25,7 @@
 import { SESSIONS } from './public_widget/session-config.js';
 
 /** Bump when the generated programme changes, so stored seeds refresh. */
-export const DEMO_SEED_VERSION = 3;
+export const DEMO_SEED_VERSION = 4;
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 /** 32-bit FNV-1a with a murmur3 finaliser (good avalanche, tiny). */
@@ -47,7 +47,8 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rngFor = (key) => mulberry32(hash32('tft-demo-v' + DEMO_SEED_VERSION + '/' + key));
+// Salt fixed at v3 so later version bumps (new fields) keep the same names and data.
+const rngFor = (key) => mulberry32(hash32('tft-demo-v3/' + key));
 const hex8 = (n) => n.toString(16).padStart(8, '0');
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 const intBetween = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
@@ -291,6 +292,8 @@ export function buildDemoProgramme(nowSecs) {
           cohortRuns.push({
             id: runId, session, cohort_id: c.id, group_id: g.id,
             status: open ? 'open' : 'closed',
+            // Most groups do the physical task; some sessions skip it (weather, space).
+            physical_done: rngFor(runId + '/physical')() < 0.85,
             started_at, ended_at,
             pledge_count: pledges.length,
             pledges

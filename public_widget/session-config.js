@@ -307,6 +307,22 @@ export const SESSIONS = [
   }
 ];
 
+/**
+ * Media for each session — fill these in as RTF supply them; the portal shows
+ * 'to be added' until then.
+ *   physical_video  the physical task's demo video: a YouTube or Vimeo link, or an .mp4 URL
+ *   worksheet       what the worksheet is (shown in the Document hub)
+ * The worksheet PDFs themselves are versioned in worksheets/manifest.json (see doc-store.js).
+ */
+export const SESSION_MEDIA = {
+  1: { physical_video: '', worksheet: 'Match Time word cards' },
+  2: { physical_video: '', worksheet: 'Unpack and Store food cards' },
+  3: { physical_video: '', worksheet: 'Higher / Lower water cards' },
+  4: { physical_video: '', worksheet: 'Energise The Team and Sugar Lump Top Trumps cards' },
+  5: { physical_video: '', worksheet: 'Sin Bin storyboard cards' },
+  6: { physical_video: '', worksheet: 'Wildlife Defender prompt card' }
+};
+
 /** Look up a session definition by number (1-6). */
 export function sessionByNumber(n) {
   return SESSIONS.find(s => s.n === Number(n)) || null;

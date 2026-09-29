@@ -18,7 +18,10 @@ import {
   initializeApp, getFirestore, getAuth, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, doc, getDoc, getDocs, collection, updateDoc, query, orderBy
 , MODE } from '../data-layer.js';
-import { SESSION_COUNT } from '../public_widget/session-config.js';
+import * as sessionConfig from '../public_widget/session-config.js';
+import { listSessionDocs, versionUrl, projectorPagePath, projectorPageStatus } from '../doc-store.js';
+const { SESSION_COUNT, SESSIONS } = sessionConfig;
+const SESSION_MEDIA = sessionConfig.SESSION_MEDIA || {};
 
 const app  = initializeApp({ projectId: 'tft26-local' });
 const db   = getFirestore(app);
@@ -55,7 +58,7 @@ function viewLogin() {
 }
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { $('ab-user').textContent = ''; $('ab-signout').classList.add('hidden'); return viewLogin(); }
+  if (!user) { $('ab-user').textContent = ''; $('ab-signout').classList.add('hidden'); $('ab-nav').classList.add('hidden'); return viewLogin(); }
 
   // Client-side claim check. The Firestore rules enforce this server-side too;
   // this only exists so a non-admin sees a clear message, not a broken page.
@@ -69,14 +72,21 @@ onAuthStateChanged(auth, async (user) => {
   }
   $('ab-user').textContent = user.email;
   $('ab-signout').classList.remove('hidden');
+  $('ab-nav').classList.remove('hidden');
   viewDash();
 });
 
 $('ab-signout').addEventListener('click', e => { e.preventDefault(); signOut(auth); });
+document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  a.dataset.nav === 'docs' ? viewDocs() : viewDash();
+}));
+function navOn(which) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === which)); }
 
 // ─── 1. Dashboard — all providers ────────────────────────────────────────────
 async function viewDash() {
   render('v-dash');
+  navOn('dash');
 
   const totalsSnap = await getDoc(doc(db, 'public', 'session-totals'));
   const t = totalsSnap.exists() ? totalsSnap.data() : {};
@@ -149,7 +159,7 @@ async function viewProvider(providerId) {
     const runList = mine.length
       ? mine.map(r => `<button class="btn ghost" data-run="${esc(r.id)}" data-session="${n}" style="text-align:left">
             <strong>${esc(labels.cohort(r.cohort_id))}</strong> · ${esc(labels.group(r.cohort_id, r.group_id))}<br>
-            <span class="muted" style="font-size:.75rem">${when(r.started_at)} · ${r.pledge_count || 0} pledges</span>
+            <span class="muted" style="font-size:.75rem">${when(r.started_at)} · ${r.pledge_count || 0} pledges · physical task ${r.physical_done ? 'done' : 'not done'}</span>
             <span class="pill ${r.status === 'open' ? 'live' : 'none'}">${esc(r.status)}</span>
           </button>`).join('')
       : '<span class="muted" style="font-size:.82rem">Never delivered</span>';
@@ -205,7 +215,7 @@ async function viewRun(providerId, runId, session) {
   const run = runSnap.exists() ? runSnap.data() : {};
   const labels = await loadCohortLabels(providerId, [run]);
   $('rv-sub').textContent =
-    `${labels.cohort(run.cohort_id)} · ${labels.group(run.cohort_id, run.group_id)} · ${when(run.started_at)} · ${run.pledge_count || 0} pledges · ${run.status || ''}`;
+    `${labels.cohort(run.cohort_id)} · ${labels.group(run.cohort_id, run.group_id)} · ${when(run.started_at)} · ${run.pledge_count || 0} pledges · physical task ${run.physical_done ? 'done' : 'not done'} · ${run.status || ''}`;
 
   const pledges = pledgeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   if (!pledges.length) {
@@ -244,4 +254,55 @@ async function viewRun(providerId, runId, session) {
         { status: 'approved' });
       viewRun(providerId, runId, session);
     }));
+}
+
+// ─── Session documents — upload new PDF versions ─────────────────────────────
+const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+const onDay = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+/**
+ * Each session's worksheet: the current PDF (+ earlier versions) and the state
+ * of its projector page (worksheets/html/session-N.html). The projector page is
+ * supplied separately and should match the current PDF — its meta tags say
+ * whether it's still a holder, and which PDF version it matches.
+ */
+async function viewDocs() {
+  render('v-docs');
+  navOn('docs');
+  const docs = await listSessionDocs();
+  const rows = await Promise.all(SESSIONS.map(async (s) => {
+    const meta = docs[String(s.n)] || {};
+    const cur = meta.current || null;
+    const url = versionUrl(cur);
+    let page = { kind: 'missing' };
+    try {
+      const res = await fetch('../' + projectorPagePath(s.n), { cache: 'no-cache' });
+      if (res.ok) page = projectorPageStatus(await res.text());
+    } catch {}
+    return { s, cur, url, history: meta.history || [], page };
+  }));
+  if (!$('dc-list')) return;
+
+  const pageStatus = (page, cur) =>
+      page.kind === 'missing' ? '<span class="pill pending">Missing</span>'
+    : page.kind === 'holder'  ? '<span class="pill pending">Holder</span> <span class="muted">replace when the final worksheet is ready</span>'
+    : !cur                    ? '<span class="pill ok">Final</span>'
+    : page.matchesPdf === cur.version ? `<span class="pill ok">Matches PDF v${cur.version}</span>`
+    : `<span class="pill pending">Out of step</span> <span class="muted">matches PDF v${page.matchesPdf || '?'}; current is v${cur.version}</span>`;
+
+  $('dc-list').innerHTML = rows.map(({ s, cur, url, history, page }) => `
+    <div class="card doc-admin">
+      <strong>Session ${s.n} · ${esc(s.title)}</strong>
+      <div class="muted" style="font-size:.82rem">${esc(s.classroom?.title || '')}${SESSION_MEDIA[s.n]?.worksheet ? ' · ' + esc(SESSION_MEDIA[s.n].worksheet) : ''}</div>
+      <div class="doc-grid">
+        <div><div class="lbl">PDF</div><div class="val">${cur
+          ? `v${cur.version} · <a href="${esc(url)}" target="_blank" rel="noopener">${esc(cur.name)}</a> · ${kb(cur.size)} · ${onDay(cur.added)}`
+          : '<span class="muted">None added yet</span>'}</div></div>
+        <div><div class="lbl">Projector page</div><div class="val">${pageStatus(page, cur)}
+          · <a href="../${projectorPagePath(s.n)}" target="_blank" rel="noopener">Open</a></div></div>
+      </div>
+      ${history.length ? `<details><summary>Earlier versions (${history.length})</summary><ul>${history.slice().reverse().map(v =>
+        `<li>v${v.version} · <a href="${esc(versionUrl(v))}" target="_blank" rel="noopener">${esc(v.name)}</a> · ${kb(v.size)} · ${onDay(v.added)}</li>`).join('')}</ul></details>` : ''}
+    </div>`).join('');
+
 }

@@ -34,7 +34,9 @@
  * All roster calls return plain JSON-serialisable objects for the same reason.
  */
 
-import { mintStudentRef, SESSIONS, EXPECTED_GROUP_SIZE, EXPECTED_GROUPS } from './public_widget/session-config.js';
+import * as sessionConfig from './public_widget/session-config.js';
+const { mintStudentRef, SESSIONS, EXPECTED_GROUP_SIZE, EXPECTED_GROUPS } = sessionConfig;
+const SESSION_MEDIA = sessionConfig.SESSION_MEDIA || {};   // tolerate a cached older config
 import { buildDemoProgramme, DEMO_SEED_VERSION } from './demo-data.js';
 
 const LS_WP      = 'tft26_wp_emulator_v1';
@@ -50,6 +52,9 @@ function save(s) { localStorage.setItem(LS_WP, JSON.stringify(s)); }
 export const WP_ROUTES = {
   login:    { hash: '#/login',                        permalink: '/facilitator/'                                 },
   dashboard:{ hash: '#/dashboard',                    permalink: '/facilitator/dashboard/'                       },
+  documents:{ hash: '#/documents',                    permalink: '/facilitator/documents/'                       },
+  videos:   { hash: '#/videos',                       permalink: '/facilitator/physical-activity-videos/'        },
+  worksheet:{ hash: '#/worksheet/:n',                 permalink: '/facilitator/worksheet/:n/'                    },
   cohort:   { hash: '#/cohort/:c',                    permalink: '/facilitator/cohort/:c/'                       },
   sessions: { hash: '#/cohort/:c/sessions',           permalink: '/facilitator/cohort/:c/sessions/'              },
   detail:   { hash: '#/cohort/:c/session/:n',         permalink: '/facilitator/cohort/:c/session/:n/'            },
@@ -125,7 +130,9 @@ const SESSION_PAGES = SESSIONS.map(x => ({
   n: x.n, title: x.title, theme_note: x.theme_note || '', summary: x.summary || '',
   outcomes: x.outcomes || [], film: x.film || null, classroom: x.classroom || null,
   physical: x.physical || null, citizen: x.citizen || '', video_url: x.video_url || '',
-  question: x.question, prompt: x.prompt, options: x.options.slice()
+  question: x.question, prompt: x.prompt, options: x.options.slice(),
+  physical_video: SESSION_MEDIA[x.n]?.physical_video || '',
+  worksheet: SESSION_MEDIA[x.n]?.worksheet || ''
 }));
 export function wpSessionPage(n)  { return SESSION_PAGES.find(p => p.n === Number(n)) || null; }
 export function wpSessionPages()  { return SESSION_PAGES; }
