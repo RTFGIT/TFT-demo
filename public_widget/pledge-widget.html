@@ -91,8 +91,8 @@
   .idle { text-align:center; padding:1.2rem .5rem 1.4rem; }
   .idle img { width:56px; height:auto; margin-bottom:.7rem; animation:wobble 2.8s ease-in-out infinite; }
   @keyframes wobble { 0%,100% { transform:rotate(-8deg); } 50% { transform:rotate(8deg) translateY(-3px); } }
-  .idle h3 { font-size:1.35rem; margin-bottom:.25rem; }
-  .idle p { color:var(--muted); font-size:.9rem; }
+  .idle h3 { font-size:1.35rem; margin-bottom:.25rem; }  .idle p { color:var(--muted); font-size:.9rem; }
+  .idle p:empty { display:none; }
 
   /* Turn */
   .turn { display:flex; align-items:center; gap:.75rem; margin-bottom:1.05rem; }
@@ -228,7 +228,7 @@
     <div id="idle-view" class="idle view">
       <img src="assets/rugby-ball@2x.png" alt="">
       <h3 class="display" id="idle-title">Ready for the next player</h3>
-      <p id="idle-sub">Your facilitator will choose who’s up next.</p>
+      <p id="idle-sub"></p>
     </div>
 
     <!-- ── The student's turn ──────────────────────────────────────────── -->
@@ -253,12 +253,12 @@
 
       <div id="own-wrap" class="hidden">
         <textarea id="pledge" maxlength="1000"
-                  placeholder="Write your own pledge — start with “I will…”" aria-label="Your own pledge"></textarea>
+                  placeholder="Start with “I will…”" aria-label="Your own pledge"></textarea>
         <div class="count" id="char-count">0 / 1000</div>
         <div class="privacy">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" style="flex:0 0 auto;margin-top:1px"><path d="M12 3l7 4v5c0 4.4-3 8.4-7 9.5C8 20.4 5 16.4 5 12V7z"/></svg>
-          <span>Don’t include real names — not yours, not anyone else’s. Only the pledge text is stored.</span>
+          <span>Please don’t include anyone’s name.</span>
         </div>
       </div>
 

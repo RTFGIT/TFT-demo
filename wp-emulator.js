@@ -132,6 +132,7 @@ export function wpSessionPages()  { return SESSION_PAGES; }
 
 // ═══ Cohorts ═════════════════════════════════════════════════════════════════
 function providerCohorts(store, providerId) {
+  if (!store.rosters) store.rosters = {};          // store cleared while a page was open
   if (!store.rosters[providerId]) store.rosters[providerId] = { cohorts: [] };
   if (!store.rosters[providerId].cohorts) store.rosters[providerId].cohorts = [];
   return store.rosters[providerId].cohorts;

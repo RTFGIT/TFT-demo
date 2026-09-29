@@ -40,7 +40,7 @@ import {
   wpSignIn, wpSignOut, wpCurrentUser, wpAccounts, wpSessionPage, wpSessionPages,
   wpCohorts, wpHasAnyCohort, wpGetCohort, wpCreateCohort, wpRenameCohort, wpDeleteCohort,
   wpGroups, wpAddGroup, wpRenameGroup, wpRemoveGroup,
-  wpAddStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES
+  wpAddStudent, wpUpdateStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES
 } from '../wp-emulator.js';
 import {
   initializeApp, getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
@@ -68,12 +68,16 @@ const initial = (s) => (s || '?').trim().charAt(0).toUpperCase();
 let user = null;
 
 // ─── Route builders ──────────────────────────────────────────────────────────
+// The group being delivered to rides along as ?g=<groupId> on the sessions and
+// session-plan routes, so every link, back button and refresh keeps the same
+// cohort AND group (WordPress: ?group=<id> on the permalink).
+const withG = (hash, g) => g ? `${hash}?g=${encodeURIComponent(g)}` : hash;
 const H = {
-  login:    ()      => '#/login',
-  dashboard:()      => '#/dashboard',
-  cohort:   (c)     => `#/cohort/${c}`,
-  sessions: (c)     => `#/cohort/${c}/sessions`,
-  detail:   (c, n)  => `#/cohort/${c}/session/${n}`,
+  login:    ()         => '#/login',
+  dashboard:()         => '#/dashboard',
+  cohort:   (c)        => `#/cohort/${c}`,
+  sessions: (c, g)     => withG(`#/cohort/${c}/sessions`, g),
+  detail:   (c, n, g)  => withG(`#/cohort/${c}/session/${n}`, g),
   video:    (c, n)  => `#/cohort/${c}/session/${n}/video`,
   pledge:   (c, n)  => `#/cohort/${c}/session/${n}/pledge`,
   complete: (c, n)  => `#/cohort/${c}/session/${n}/complete`
@@ -87,7 +91,9 @@ const activeRun = {
 };
 
 // ─── Chrome ──────────────────────────────────────────────────────────────────
-function permalinkForHash(hash) {
+function permalinkForHash(full) {
+  const [hash, q] = full.split('?');
+  const g = new URLSearchParams(q || '').get('g');
   for (const r of Object.values(WP_ROUTES)) {
     const rx = new RegExp('^' + r.hash.replace(':c', '([^/]+)').replace(':n', '(\\d+)') + '$');
     const m = hash.match(rx);
@@ -95,7 +101,7 @@ function permalinkForHash(hash) {
     let out = r.permalink, gi = 1;
     if (r.hash.includes(':c')) out = out.replace(':c', decodeURIComponent(m[gi++]));
     if (r.hash.includes(':n')) out = out.replace(':n', m[gi++]);
-    return out;
+    return g ? `${out}?group=${g}` : out;
   }
   return '';
 }
@@ -183,29 +189,6 @@ function viewLogin() {
  *  (A run finished with nobody pledging doesn't tick the session off.) */
 const delivered = (r) => r.status === 'closed' && (r.pledge_count || 0) > 0;
 
-/**
- * How far a cohort has got. A session is "done" once every group has a closed
- * run of it, "part" once at least one group has. `next` is the first session
- * that isn't done (null when all six are).
- */
-function cohortProgress(cid, groups, runs) {
-  const mine = runs.filter(r => r.cohort_id === cid);
-  const gids = groups.map(g => g.id);
-  const perSession = [];
-  for (let n = 1; n <= SESSION_COUNT; n++) {
-    const closed = new Set(mine.filter(r => r.session === n && delivered(r)).map(r => r.group_id));
-    const hit = gids.filter(g => closed.has(g)).length;
-    perSession.push(gids.length && hit === gids.length ? 'done' : hit > 0 ? 'part' : '');
-  }
-  const i = perSession.findIndex(s => s !== 'done');
-  return {
-    perSession,
-    done: perSession.filter(s => s === 'done').length,
-    next: i >= 0 ? i + 1 : null,
-    pledges: mine.reduce((a, r) => a + (r.pledge_count || 0), 0),
-    last: Math.max(0, ...mine.map(r => r.started_at?.seconds || 0))
-  };
-}
 const ago = (secs) => {
   if (!secs) return '';
   const d = Math.round((Date.now() / 1000 - secs) / 86400);
@@ -224,10 +207,10 @@ const badge = (s) => {
  * different times. Each group is its own colour-keyed tile with six session
  * squares and ONE action:
  *
- *   "Deliver Session 4 →"   starts delivery for THAT group straight away (no
- *                           second "which group?" question)
- *   any undelivered square  delivers that session instead — out of order is fine
- *   a delivered square      opens the session's details (to review or re-run)
+ *   "Deliver Session 4 →"   opens that session's plan with THIS group already
+ *                           chosen (no second "which group?" question)
+ *   any undelivered square  the same, for that session — out of order is fine
+ *   a delivered square      the same — to review it, or run it again
  *
  * Anything stalled or left open floats to the top as needing attention. All of
  * it is derived from the WordPress roster + the provider's runs; nothing extra
@@ -236,7 +219,6 @@ const badge = (s) => {
 const DAY_S = 86400;
 const STALE_DAYS = 14;          // no session for this long → needs attention
 const LEFT_OPEN_HOURS = 3;      // an open run older than this was probably never finished
-const LS_PICK = 'tft26_pick_group';   // hands a chosen group to the session-details screen
 const fmtDay = (secs) => secs ? new Date(secs * 1000).toLocaleDateString('en-GB',
   { weekday: 'short', day: 'numeric', month: 'short' }) : '';
 const nowSecs = () => Math.floor(Date.now() / 1000);
@@ -285,11 +267,8 @@ const STATUS_PILL = {
 };
 const STATUS_RANK = { attention: 0, active: 1, new: 2, complete: 3 };
 
-/** Open a session's details with a particular group already chosen. */
-function openSessionFor(cid, gid, n) {
-  try { sessionStorage.setItem(LS_PICK, JSON.stringify({ cid, gid })); } catch {}
-  go2(H.detail(cid, n));
-}
+/** Open a session's plan with a particular group already chosen. */
+function openSessionFor(cid, gid, n) { go2(H.detail(cid, n, gid)); }
 
 async function viewDashboard() {
   show('v-dashboard');
@@ -327,12 +306,11 @@ async function viewDashboard() {
 
   // ── One sentence of summary + anything happening right now ──
   function paintSummary(cohorts) {
-    const first = (user.display_name || '').split(' ')[0];
     const students = cohorts.reduce((a, c) => a + c.students, 0);
     const pledges = runs.reduce((a, r) => a + (r.pledge_count || 0), 0);
     $('db-hello').textContent = cohorts.length
-      ? `Hi ${first} — ${plural(cohorts.length, 'cohort')}, ${plural(students, 'student')}, ${plural(pledges, 'pledge')} so far.`
-      : `Hi ${first} — let’s set up your first cohort.`;
+      ? `${plural(cohorts.length, 'cohort')} · ${plural(students, 'student')} · ${plural(pledges, 'pledge')}`
+      : '';
 
     const label = (r) => {
       const c = cohorts.find(x => x.cohort_id === r.cohort_id);
@@ -343,11 +321,11 @@ async function viewDashboard() {
       const started = r.started_at?.seconds || 0;
       const mins = Math.max(1, Math.round((nowSecs() - started) / 60));
       if (nowSecs() - started > LEFT_OPEN_HOURS * 3600) {
-        return `<div class="stale"><span class="dot"></span><span><strong>${esc(label(r))}</strong> — Session ${r.session} was started ${fmtDay(started)} and never finished. <a href="${H.detail(r.cohort_id, r.session)}">Open it →</a></span></div>`;
+        return `<div class="stale"><span class="dot"></span><span><strong>${esc(label(r))}</strong> · Session ${r.session} started ${fmtDay(started)}, not finished · <a href="${H.detail(r.cohort_id, r.session, r.group_id)}">Open</a></span></div>`;
       }
       const where = here && here.runId === r.id
-        ? `on this device — <a href="${H.pledge(r.cohort_id, r.session)}">resume →</a>` : 'on another device';
-      return `<div><span class="dot"></span><span><strong>${esc(label(r))}</strong> — Session ${r.session} live now (started ${mins < 90 ? mins + ' min' : Math.round(mins / 60) + ' h'} ago), ${where}</span></div>`;
+        ? `this device · <a href="${H.pledge(r.cohort_id, r.session)}">Resume</a>` : 'another device';
+      return `<div><span class="dot"></span><span><strong>${esc(label(r))}</strong> · Session ${r.session} in progress (${mins < 90 ? mins + ' min' : Math.round(mins / 60) + ' h'}) · ${where}</span></div>`;
     }).join('');
   }
 
@@ -366,8 +344,8 @@ async function viewDashboard() {
     const p = g.p;
     const title = (n) => wpSessionPage(n)?.title || '';
     const cells = p.cells.map(cell => {
-      const tip = cell.state === 'done' ? `Session ${cell.n} · ${title(cell.n)} — delivered ${fmtDay(cell.run.started_at?.seconds)}, ${plural(cell.run.pledge_count || 0, 'pledge')}. Tap to review.`
-                : cell.state === 'live' ? `Session ${cell.n} · ${title(cell.n)} — being delivered now`
+      const tip = cell.state === 'done' ? `Session ${cell.n} · ${title(cell.n)}: delivered ${fmtDay(cell.run.started_at?.seconds)}, ${plural(cell.run.pledge_count || 0, 'pledge')}`
+                : cell.state === 'live' ? `Session ${cell.n} · ${title(cell.n)}: in progress`
                 : `Deliver Session ${cell.n} · ${title(cell.n)} to ${g.label}`;
       const act = cell.state === 'done' || cell.state === 'live' ? 'view' : 'deliver';
       return `<button class="cell ${cell.state}" data-${act}="${esc(c.cohort_id)}|${esc(g.id)}|${cell.n}"
@@ -434,13 +412,11 @@ async function viewDashboard() {
       <div class="first-cohort">
         <div class="ic" aria-hidden="true">+</div>
         <h2>Add your first cohort</h2>
-        <p>A cohort is a class, year group or club squad you’ll take through the six sessions —
-           like “Year 9 Rugby” or “U12s”. You’ll add its groups and students next.</p>
+        <p>A class, year group or squad.</p>
         <div class="add">
           <input type="text" id="db-first" placeholder="Cohort name, e.g. Year 9 Rugby" aria-label="Cohort name">
           <button class="btn new-btn" id="db-firstadd"><span class="plus" aria-hidden="true">+</span>Add cohort</button>
         </div>
-        <ol><li>Name the cohort</li><li>Add groups &amp; students</li><li>Deliver Session 1</li></ol>
       </div>`
       : list.length === 0 ? '<div class="empty">No cohorts match.</div>'
       : list.map(panel).join('');
@@ -451,7 +427,7 @@ async function viewDashboard() {
     }
 
     const parse = (v) => { const [cid, gid, n] = v.split('|'); return [cid, gid, Number(n)]; };
-    appEl.querySelectorAll('#db-list [data-deliver]').forEach(b => b.addEventListener('click', () => { const [cid, gid, n] = parse(b.dataset.deliver); beginDelivery(cid, n, gid); }));
+    appEl.querySelectorAll('#db-list [data-deliver]').forEach(b => b.addEventListener('click', () => openSessionFor(...parse(b.dataset.deliver))));
     appEl.querySelectorAll('#db-list [data-view]').forEach(b => b.addEventListener('click', () => openSessionFor(...parse(b.dataset.view))));
     appEl.querySelectorAll('#db-list [data-manage]').forEach(b => b.addEventListener('click', () => go2(H.cohort(b.dataset.manage))));
     appEl.querySelectorAll('#db-list [data-delcohort]').forEach(b => b.addEventListener('click', () => {
@@ -484,6 +460,8 @@ async function viewDashboard() {
 }
 
 // ═══ 3. MANAGE ONE COHORT — groups & students ════════════════════════════════
+let showIds = false;          // "Show IDs" on the cohort screen
+
 function viewCohort(cid) {
   const pid = user.provider_id;
   const cohort = wpGetCohort(pid, cid);
@@ -505,67 +483,112 @@ function viewCohort(cid) {
     go2(H.sessions(cid));
   });
 
-  function paint() {
+  $('mc-ids').checked = showIds;
+  $('mc-ids').addEventListener('change', () => { showIds = $('mc-ids').checked; $('mc-groups').classList.toggle('show-ids', showIds); });
+  $('mc-groups').classList.toggle('show-ids', showIds);
+
+  /**
+   * Enrolment is where names get typed in bulk, so: full names in a numbered
+   * list (easy to check against a register), click a name to correct it, paste
+   * a whole class list in one go, and a flag on any name entered twice.
+   */
+  function paint(focusGroup, flash) {
     const groups = wpGroups(pid, cid);
-    $('mc-groups').innerHTML = groups.map(g => {
+    const all = wpRoster(pid, cid);
+    const key = (n) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+    const seen = {};
+    all.forEach(st => { const k = key(st.display_name); seen[k] = (seen[k] || 0) + 1; });
+
+    $('mc-groups').innerHTML = groups.map((g, gi) => {
       const students = wpRoster(pid, cid, g.id);
       const soleGroupHint = groups.length === 1 ? ' <span class="muted" style="font-weight:400">· whole cohort</span>' : '';
-      return `<div class="group-card" data-group="${esc(g.id)}">
+      return `<div class="group-card" data-group="${esc(g.id)}" style="--g:var(--group-${(gi % 6) + 1})">
         <div class="group-head">
+          <i class="gdot"></i>
           <input value="${esc(g.label)}" data-rename="${esc(g.id)}" aria-label="Group name">
           ${soleGroupHint}
-          <span class="pill ${students.length ? 'ok' : 'none'}">${students.length}</span>
+          <span class="pill ${students.length ? 'ok' : 'none'}">${plural(students.length, 'student')}</span>
           ${groups.length > 1 ? `<button class="btn ghost" data-delgroup="${esc(g.id)}">Remove</button>` : ''}
         </div>
         <div class="group-body">
-          ${students.map(s => `
-            <div class="stu">
-              <span class="av">${esc(initial(s.display_name))}</span>
-              <span class="nm">${esc(s.display_name)}</span>
-              <span class="ref">${esc(s.student_ref)}</span>
-              <button class="x" data-del="${esc(s.student_ref)}" title="Remove">✕</button>
-            </div>`).join('')}
-          <div class="add-row">
-            <input type="text" placeholder="Add student to ${esc(g.label)}…" data-add="${esc(g.id)}">
-            <button class="btn secondary" data-addbtn="${esc(g.id)}">Add</button>
+          ${students.length ? `<ol class="stu-list">${students.map(st => {
+            const dup = seen[key(st.display_name)] > 1;
+            return `<li class="stu ${dup ? 'dup' : ''}">
+              <input class="nm" value="${esc(st.display_name)}" data-edit="${esc(st.student_ref)}"
+                     aria-label="Student name" title="Click to edit">
+              <button class="x" data-del="${esc(st.student_ref)}" title="Remove ${esc(st.display_name)}" aria-label="Remove ${esc(st.display_name)}">✕</button>
+              <span class="sub">${dup ? '<span class="dupnote">Duplicate name</span>' : ''}<span class="ref">${esc(st.student_ref)}</span></span>
+            </li>`;
+          }).join('')}</ol>` : ''}
+          <div class="add-box">
+            <textarea rows="1" data-add="${esc(g.id)}" aria-label="Add students to ${esc(g.label)}"
+              placeholder="Add names, or paste a list"></textarea>
+            <button class="btn" data-addbtn="${esc(g.id)}">Add</button>
           </div>
+          <div class="add-hint">${flash && focusGroup === g.id ? `<span class="flash">${esc(flash)}</span> · ` : ''}One per line or comma-separated</div>
         </div>
       </div>`;
     }).join('');
 
-    const total = wpRoster(pid, cid).length;
-    $('mc-count').textContent = `${total} student${total === 1 ? '' : 's'} across ${groups.length} group${groups.length === 1 ? '' : 's'}`;
+    const total = all.length;
+    $('mc-count').textContent = `${plural(total, 'student')} across ${plural(groups.length, 'group')}`;
     $('mc-done').disabled = total === 0;
     $('mc-done').textContent = 'Deliver sessions →';
 
     const cap = wpCapStatus(pid, cid);
     const msgs = [];
-    cap.overSizedGroups.forEach(g => msgs.push(`${g.label} has ${g.count} students — more than the expected ${cap.groupSizeCap}.`));
-    if (cap.tooManyGroups) msgs.push(`${cap.groups} groups — more than the expected ${EXPECTED_GROUPS}.`);
+    cap.overSizedGroups.forEach(g => msgs.push(`${g.label} has ${g.count} students (usual maximum ${cap.groupSizeCap}).`));
+    if (cap.tooManyGroups) msgs.push(`${cap.groups} groups (usual maximum ${EXPECTED_GROUPS}).`);
     if (msgs.length) {
-      $('mc-warn').textContent = msgs.join(' ') + ' That is fine — these are soft limits, not blocks.';
+      $('mc-warn').textContent = msgs.join(' ');
       $('mc-warn').classList.remove('hidden');
     } else { $('mc-warn').classList.add('hidden'); }
 
+    // Adding: Enter adds everything in the box (a pasted list included); the
+    // button shows how many names it will add.
+    appEl.querySelectorAll('[data-add]').forEach(t => {
+      const btn = appEl.querySelector(`[data-addbtn="${t.dataset.add}"]`);
+      const sync = () => {
+        const n = splitNames(t.value).length;
+        btn.textContent = n > 1 ? `Add ${n}` : 'Add';
+        t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 220) + 'px';
+      };
+      t.addEventListener('input', sync);
+      t.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTo(t.dataset.add); } });
+    });
     appEl.querySelectorAll('[data-addbtn]').forEach(b => b.addEventListener('click', () => addTo(b.dataset.addbtn)));
-    appEl.querySelectorAll('[data-add]').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') addTo(i.dataset.add); }));
+    // Correcting a name: edit in place; an emptied name reverts.
+    appEl.querySelectorAll('[data-edit]').forEach(i => {
+      i.addEventListener('keydown', e => { if (e.key === 'Enter') i.blur(); if (e.key === 'Escape') { i.value = i.defaultValue; i.blur(); } });
+      i.addEventListener('change', () => {
+        const v = i.value.trim();
+        if (!v) { i.value = i.defaultValue; return; }
+        wpUpdateStudent(pid, cid, i.dataset.edit, { display_name: v });
+        paint();
+      });
+    });
     appEl.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { wpRemoveStudent(pid, cid, b.dataset.del); paint(); }));
     appEl.querySelectorAll('[data-delgroup]').forEach(b => b.addEventListener('click', () => {
       if (confirm('Remove this group? Its students move to the first remaining group.')) { wpRemoveGroup(pid, cid, b.dataset.delgroup); paint(); }
     }));
     appEl.querySelectorAll('[data-rename]').forEach(i => i.addEventListener('change', () => { wpRenameGroup(pid, cid, i.dataset.rename, i.value.trim() || 'Group'); paint(); }));
+
+    if (focusGroup) appEl.querySelector(`[data-add="${focusGroup}"]`)?.focus();
   }
 
   function addTo(groupId) {
     const input = appEl.querySelector(`[data-add="${groupId}"]`);
-    const name = input.value.trim();
-    if (!name) return;
-    wpAddStudent(pid, cid, name, groupId);
-    paint();
-    const again = appEl.querySelector(`[data-add="${groupId}"]`);
-    if (again) again.focus();
+    const names = splitNames(input.value);
+    if (!names.length) return;
+    names.forEach(name => wpAddStudent(pid, cid, name, groupId));
+    paint(groupId, names.length === 1 ? `Added ${names[0]}` : `Added ${names.length} students`);
   }
   paint();
+}
+
+/** Split typed or pasted text into names: one per line, or comma / semicolon separated. */
+function splitNames(text) {
+  return String(text || '').split(/[\n\r,;\t]+/).map(n => n.replace(/\s+/g, ' ').trim()).filter(Boolean);
 }
 
 /**
@@ -587,7 +610,12 @@ async function mirrorCohort(pid, cid) {
 }
 
 // ═══ 4. SESSION SELECTION ════════════════════════════════════════════════════
-async function viewSessions(cid) {
+/**
+ * All sessions for ONE group of a cohort — the group is always named on screen
+ * and carried into every session link (?g=), so opening a session from here
+ * never silently switches to a different group.
+ */
+async function viewSessions(cid, gParam) {
   const pid = user.provider_id;
   const cohort = wpGetCohort(pid, cid);
   if (!cohort) return go2(H.dashboard());
@@ -597,44 +625,50 @@ async function viewSessions(cid) {
   const groups = wpGroups(pid, cid);
   $('se-provider').textContent = user.provider_name;
   $('se-title').textContent    = cohort.label;
-  $('se-cohort').textContent   = `${wpRoster(pid, cid).length} students in ${groups.length} group${groups.length === 1 ? '' : 's'}`;
-  $('se-students').textContent = wpRoster(pid, cid).length;
-  $('se-groups').textContent   = groups.length;
-  $('se-crumb').setAttribute('href', H.dashboard());
   $('se-setup').addEventListener('click', () => go2(H.cohort(cid)));
 
-  const allOfMine = await allRuns();
-  const runs = allOfMine.filter(r => r.cohort_id === cid);
-  const groupIds = new Set(groups.map(g => g.id));
-  const prog = cohortProgress(cid, groups, allOfMine);
-  let totalRuns = 0, totalPledges = 0;
+  const runs = (await allRuns()).filter(r => r.cohort_id === cid);
+  if (!$('se-list')) return;                                  // navigated away while loading
+  const progress = Object.fromEntries(groups.map(g => [g.id, groupProgress(cid, g.id, runs)]));
+  // Group from the URL; otherwise the first group with a session still to do.
+  let gid = (gParam && progress[gParam]) ? gParam
+          : (groups.find(g => progress[g.id].next !== null) || groups[0]).id;
+  const colourOf = (id) => `var(--group-${(groups.findIndex(g => g.id === id) % 6) + 1})`;
 
-  $('se-list').innerHTML = wpSessionPages().map(p => {
-    const sRuns = runs.filter(r => r.session === p.n);
-    const pledges = sRuns.reduce((a, r) => a + (r.pledge_count || 0), 0);
-    totalRuns += sRuns.length; totalPledges += pledges;
-    const doneGroups = new Set(sRuns.filter(r => delivered(r) && groupIds.has(r.group_id)).map(r => r.group_id));
-    const live = sRuns.some(r => r.status === 'open');
-    const state = prog.perSession[p.n - 1];
-    const isNext = prog.next === p.n;
-    const dots = groups.map(g => `<i class="${doneGroups.has(g.id) ? 'done' : ''}" title="${esc(g.label)}"></i>`).join('');
-    const pill = live ? '<span class="pill live">in progress</span>'
-               : isNext ? '<span class="pill next">Next up</span>'
-               : state === 'done' ? '<span class="pill ok">Delivered</span>'
-               : '<span class="pill none">Not yet</span>';
-    return `<a class="session-row ${state === 'done' ? 'done' : ''} ${isNext ? 'next' : ''}" href="${H.detail(cid, p.n)}">
-        <div class="num">${state === 'done' ? '✓' : p.n}</div>
-        <div class="grow">
-          <div class="ttl">Session ${p.n} · ${esc(p.title)}</div>
-          <div class="sub">${pledges} pledge${pledges === 1 ? '' : 's'} · ${doneGroups.size}/${groups.length} group${groups.length === 1 ? '' : 's'} delivered</div>
-        </div>
-        <div class="grp-dots">${dots}</div>
-        ${pill}
-      </a>`;
-  }).join('');
+  function paint() {
+    const g = groups.find(x => x.id === gid);
+    const p = progress[gid];
+    const size = wpRoster(pid, cid, gid).length;
+    if (location.hash !== H.sessions(cid, gid)) history.replaceState(null, '', H.sessions(cid, gid));
+    setChrome();
+    $('se-to').style.setProperty('--g', colourOf(gid));
+    $('se-cohort').textContent = `${plural(size, 'student')} · ${p.done} of ${SESSION_COUNT} sessions delivered`;
+    $('se-groups').innerHTML = groups.length < 2 ? `<strong>${esc(g.label)}</strong>`
+      : groups.map(x => `<button class="gchip" data-g="${esc(x.id)}" aria-pressed="${x.id === gid}" style="--g:${colourOf(x.id)}">
+          <i></i>${esc(x.label)}</button>`).join('');
+    appEl.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { gid = b.dataset.g; paint(); }));
 
-  $('se-runs').textContent    = totalRuns;
-  $('se-pledges').textContent = totalPledges;
+    $('se-list').innerHTML = p.cells.map(cell => {
+      const page = wpSessionPage(cell.n);
+      const r = cell.run;
+      const pill = cell.state === 'live' ? '<span class="pill live">in progress</span>'
+                 : cell.state === 'next' ? '<span class="pill next">Next up</span>'
+                 : cell.state === 'done' ? '<span class="pill ok">Delivered</span>'
+                 : '<span class="pill none">Not yet</span>';
+      const sub = cell.state === 'done' ? `Delivered ${fmtDay(r.started_at?.seconds)} · ${plural(r.pledge_count || 0, 'pledge')}`
+                : cell.state === 'live' ? 'Being delivered now'
+                : 'Not yet delivered';
+      return `<a class="session-row ${cell.state === 'done' ? 'done' : ''} ${cell.state === 'next' ? 'next' : ''}" href="${H.detail(cid, cell.n, gid)}">
+          <div class="num">${cell.state === 'done' ? '✓' : cell.n}</div>
+          <div class="grow">
+            <div class="ttl">Session ${cell.n} · ${esc(page ? page.title : '')}</div>
+            <div class="sub">${esc(sub)}</div>
+          </div>
+          ${pill}
+        </a>`;
+    }).join('');
+  }
+  paint();
 }
 
 async function allRuns() {
@@ -643,7 +677,7 @@ async function allRuns() {
 }
 
 // ═══ 5. SESSION DETAILS ══════════════════════════════════════════════════════
-async function viewDetail(cid, n) {
+async function viewDetail(cid, n, gParam) {
   const pid = user.provider_id;
   const cohort = wpGetCohort(pid, cid);
   const page = wpSessionPage(n);
@@ -651,10 +685,9 @@ async function viewDetail(cid, n) {
 
   show('v-detail');
   rail($('sd-rail'), 0);
-  $('sd-crumb').setAttribute('href', H.sessions(cid));
   $('sd-eyebrow').textContent  = `${cohort.label} · Session ${n} of ${SESSION_COUNT}`;
   $('sd-title').textContent    = page.title;
-  $('sd-blurb').textContent    = [page.theme_note, page.summary].filter(Boolean).join(' — ');
+  $('sd-blurb').textContent    = page.summary || '';
   $('sd-outcomes').innerHTML   = (page.outcomes || []).map(o => `<li>${esc(o)}</li>`).join('');
   $('sd-plan').innerHTML = [
     [SESSION_PARTS.film.label,      page.film ? `Film: ${page.film.title}` : 'Session film'],
@@ -663,40 +696,79 @@ async function viewDetail(cid, n) {
     [SESSION_PARTS.pledge.label,    page.question]
   ].map(([l, t]) => `<li><div><small>${esc(l)}</small>${esc(t)}</div></li>`).join('');
 
-  const runs = (await allRuns()).filter(r => r.cohort_id === cid && r.session === n);
+  const cohortRuns = (await allRuns()).filter(r => r.cohort_id === cid);
+  const runs = cohortRuns.filter(r => r.session === n);
   const doneGroups = new Set(runs.filter(delivered).map(r => r.group_id));
   const openGroups = new Set(runs.filter(r => r.status === 'open').map(r => r.group_id));   // multi-facilitator presence
   const groups = wpGroups(pid, cid);
 
-  // A group picked on the dashboard wins; otherwise default to the first group
-  // not yet delivered and not currently in progress.
-  let picked = null;
-  try { picked = JSON.parse(sessionStorage.getItem(LS_PICK)); sessionStorage.removeItem(LS_PICK); } catch {}
-  let chosen = (picked && picked.cid === cid && groups.some(g => g.id === picked.gid)) ? picked.gid : groups.find(g => !doneGroups.has(g.id) && !openGroups.has(g.id))?.id
+  // The group in the URL wins (set by the dashboard or the sessions list);
+  // otherwise default to the first group not yet delivered and not in progress.
+  let chosen = (gParam && groups.some(g => g.id === gParam)) ? gParam : groups.find(g => !doneGroups.has(g.id) && !openGroups.has(g.id))?.id
             || groups.find(g => !doneGroups.has(g.id))?.id || groups[0]?.id || null;
 
-  // Rendered ONCE; selection only toggles classes and the start button.
+  // "Delivering to" is a confirmation, not a question: the group is already
+  // chosen (from the dashboard, or the sensible default above). The full list
+  // sits behind "Change group" as a fallback, and isn't offered for one group.
+  const colourOf = (gid) => `var(--group-${(groups.findIndex(g => g.id === gid) % 6) + 1})`;
   $('sd-groups').innerHTML = groups.map(g => {
     const count = wpRoster(pid, cid, g.id).length;
     const status = openGroups.has(g.id) ? '<span class="pill live">in progress</span>'
                  : doneGroups.has(g.id) ? '<span class="pill ok">delivered</span>'
                  : '<span class="pill none">not yet</span>';
-    return `<label class="roster-item ${chosen === g.id ? 'active' : ''}" data-grow="${esc(g.id)}" style="cursor:pointer">
-        <input type="radio" name="grp" value="${esc(g.id)}" ${chosen === g.id ? 'checked' : ''} style="width:auto">
-        <span class="nm"><strong>${esc(g.label)}</strong> · ${count} student${count === 1 ? '' : 's'}</span>
+    return `<label class="roster-item" data-grow="${esc(g.id)}" style="cursor:pointer">
+        <input type="radio" name="grp" value="${esc(g.id)}" style="width:auto">
+        <i class="gdot" style="width:10px;height:10px;border-radius:50%;background:${colourOf(g.id)};flex:0 0 auto"></i>
+        <span class="nm"><strong>${esc(g.label)}</strong> · ${plural(count, 'student')}</span>
         ${status}
       </label>`;
   }).join('');
+  if (groups.length < 2) $('sd-change').classList.add('hidden');
+  const togglePicker = (open) => {
+    $('sd-picker').classList.toggle('hidden', !open);
+    $('sd-change').setAttribute('aria-expanded', open ? 'true' : 'false');
+    $('sd-change').textContent = open ? 'Done' : 'Change group';
+  };
+  $('sd-change').addEventListener('click', () => togglePicker($('sd-picker').classList.contains('hidden')));
 
   function syncStart() {
-    appEl.querySelectorAll('[data-grow]').forEach(el => el.classList.toggle('active', el.dataset.grow === chosen));
+    const g = groups.find(x => x.id === chosen);
+    // Keep the address and the breadcrumb in step with the chosen group.
+    if (chosen && location.hash !== H.detail(cid, n, chosen)) history.replaceState(null, '', H.detail(cid, n, chosen));
+    // Session switcher: this group's six sessions — tap one to switch.
+    const gp = chosen ? groupProgress(cid, chosen, cohortRuns) : null;
+    $('sd-switch').style.setProperty('--g', chosen ? colourOf(chosen) : 'var(--accent)');
+    $('sd-sw-group').textContent = g ? `${cohort.label} · ${g.label}` : cohort.label;
+    $('sd-sw-cells').innerHTML = gp ? gp.cells.map(c => {
+      const t = wpSessionPage(c.n)?.title || '';
+      const st = c.state === 'done' ? 'delivered' : c.state === 'live' ? 'in progress' : c.state === 'next' ? 'up next' : 'not yet';
+      return `<button class="cell ${c.state} ${c.n === n ? 'current' : ''}" data-sw="${c.n}" ${c.n === n ? 'aria-current="page"' : ''}
+        title="Session ${c.n} · ${esc(t)}: ${st}">${c.state === 'done' ? '✓' : c.n}</button>`;
+    }).join('') : '';
+    appEl.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {
+      if (Number(b.dataset.sw) !== n) go2(H.detail(cid, Number(b.dataset.sw), chosen));
+    }));
+    $('sd-all').setAttribute('href', H.sessions(cid, chosen));
+    $('sd-all').textContent = g ? `All sessions for ${g.label} →` : 'All sessions →';
+    setChrome();
     const count = chosen ? wpRoster(pid, cid, chosen).length : 0;
+    appEl.querySelectorAll('input[name=grp]').forEach(r => { r.checked = r.value === chosen; });
+    appEl.querySelectorAll('[data-grow]').forEach(el => el.classList.toggle('active', el.dataset.grow === chosen));
+    $('sd-to').style.setProperty('--g', chosen ? colourOf(chosen) : 'var(--accent)');
+    $('sd-to-name').textContent = g ? g.label : 'No group yet';
+    $('sd-to-meta').textContent = g ? `· ${plural(count, 'student')}` : '';
+    $('sd-to-note').textContent = !g ? 'No groups yet.'
+      : count === 0 ? 'No students yet.'
+      : openGroups.has(chosen) ? 'In progress on another device.'
+      : doneGroups.has(chosen) ? 'Already delivered.'
+      : '';
     $('sd-start').disabled = !chosen || count === 0;
     $('sd-start').textContent = count === 0 ? 'That group has no students yet'
                               : openGroups.has(chosen) ? 'Start another run for this group →'
+                              : doneGroups.has(chosen) ? 'Run it again →'
                               : 'Start session →';
   }
-  appEl.querySelectorAll('input[name=grp]').forEach(r => r.addEventListener('change', () => { chosen = r.value; syncStart(); }));
+  appEl.querySelectorAll('input[name=grp]').forEach(r => r.addEventListener('change', () => { chosen = r.value; syncStart(); togglePicker(false); }));
   syncStart();
 
   if (runs.length) {
@@ -704,7 +776,7 @@ async function viewDetail(cid, n) {
     $('sd-runs-pill').textContent = `Run ${runs.length}×`;
     $('sd-runs').innerHTML = runs.map(r => {
       const g = groups.find(x => x.id === r.group_id);
-      return `<div>· ${esc(g ? g.label : r.group_id)} — ${r.pledge_count || 0} pledges
+      return `<div>${esc(g ? g.label : r.group_id)} · ${plural(r.pledge_count || 0, 'pledge')}
         <span class="pill ${r.status === 'open' ? 'live' : 'none'}">${esc(r.status)}</span></div>`;
     }).join('');
   }
@@ -726,25 +798,21 @@ function viewVideo(cid, n) {
   const group = wpGroups(pid, cid).find(g => g.id === run.groupId);
   $('vd-eyebrow').textContent  = `${cohort.label} · Session ${n} of ${SESSION_COUNT}`;
   $('vd-title').textContent    = page.title;
-  $('vd-sub').textContent      = group ? `Delivering to ${group.label} — work through the four parts in order.` : '';
+  $('vd-sub').textContent      = group ? `Delivering to ${group.label}` : '';
   $('vd-film').textContent     = page.film?.title || 'Session film';
-  $('vd-film-how').textContent = SESSION_PARTS.film.how;
   $('vd-questions').innerHTML  = (page.film?.questions || []).map(q => `<li>${esc(q)}</li>`).join('');
   $('vd-classroom').textContent      = page.classroom?.title || '';
-  $('vd-classroom-how').textContent  = SESSION_PARTS.classroom.how;
   $('vd-classroom-body').innerHTML   = renderBlocks(page.classroom?.blocks);
   $('vd-physical').textContent       = page.physical?.title || '';
-  $('vd-physical-how').textContent   = SESSION_PARTS.physical.how;
   $('vd-physical-body').innerHTML    = renderBlocks(page.physical?.blocks);
   $('vd-question').textContent = page.question;
-  $('vd-pledge-how').textContent = SESSION_PARTS.pledge.how;
   $('vd-citizen').textContent  = page.citizen || '';
   if (page.video_url) $('vd-videonote').textContent = page.video_url;
   appEl.querySelectorAll('[data-part]').forEach(a => a.addEventListener('click', e => {
     e.preventDefault();
     $(a.dataset.part)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
-  $('vd-back').addEventListener('click', e => { e.preventDefault(); go2(H.detail(cid, n)); });
+  $('vd-back').addEventListener('click', e => { e.preventDefault(); go2(H.detail(cid, n, run.groupId)); });
   $('vd-next').addEventListener('click', async () => {
     const btn = $('vd-next');
     btn.disabled = true; btn.textContent = 'Starting…';
@@ -752,7 +820,7 @@ function viewVideo(cid, n) {
     catch (e) {
       console.error('[TFT26] could not start the run', e);
       btn.disabled = false; btn.textContent = 'Continue to pledges →';
-      alert('Could not start the session — check the connection and try again.');
+      alert('Could not start the session. Check the connection and try again.');
     }
   });
 }
@@ -832,9 +900,6 @@ function viewPledge(cid, n) {
   // Routing context only — provider / session / run / cohort are non-identifying.
   const qs = `?provider=${encodeURIComponent(pid)}&session=${n}&run=${encodeURIComponent(run.runId)}&cohort=${encodeURIComponent(cid)}`;
   $('dl-frame').src = `../public_widget/pledge-widget.html${qs}`;
-  // Show the production-style embed URL in the boundary chrome so it is clear this
-  // iframe is served from GitHub Pages in production, not from WordPress.
-  $('dl-embed-url').textContent = `rtfgit.github.io/TFT/pledge-widget.html${qs}`;
   paintRoster();
 }
 
@@ -950,19 +1015,19 @@ async function viewComplete(cid, n) {
   $('cp-of').textContent      = total;
   $('cp-own').textContent     = '–';
   $('cp-cohorts').addEventListener('click', () => go2(H.dashboard()));
-  $('cp-back').addEventListener('click', () => go2(H.sessions(cid)));
+  $('cp-back').addEventListener('click', () => go2(H.sessions(cid, last.groupId)));
 
   // Up next — straight on to planning the following session.
   const nextPage = n < SESSION_COUNT ? wpSessionPage(n + 1) : null;
   if (nextPage) {
     $('cp-next-num').textContent = n + 1;
     $('cp-next-title').textContent = `Session ${n + 1} · ${nextPage.title}`;
-    $('cp-next').addEventListener('click', () => last.groupId ? openSessionFor(cid, last.groupId, n + 1) : go2(H.detail(cid, n + 1)));
+    $('cp-next').addEventListener('click', () => go2(H.detail(cid, n + 1, last.groupId)));
   } else {
     $('cp-next-num').textContent = '★';
-    $('cp-next-title').textContent = 'That was the final session — the programme is complete for this group.';
+    $('cp-next-title').textContent = 'Programme complete for this group.';
     $('cp-next').textContent = 'All sessions →';
-    $('cp-next').addEventListener('click', () => go2(H.sessions(cid)));
+    $('cp-next').addEventListener('click', () => go2(H.sessions(cid, last.groupId)));
   }
 
   // What the group pledged — read back from the run itself (pseudonymous
@@ -1010,7 +1075,8 @@ function route() {
     return location.hash === '#/login' ? viewLogin() : go2(H.login());
   }
 
-  const h = location.hash || '';
+  const [h, q] = (location.hash || '').split('?');
+  const gParam = new URLSearchParams(q || '').get('g');
   const mSession = h.match(/^#\/cohort\/([^/]+)\/session\/(\d+)(?:\/(video|pledge|complete))?$/);
   if (mSession) {
     const cid = decodeURIComponent(mSession[1]);
@@ -1020,10 +1086,10 @@ function route() {
     if (mSession[3] === 'video')    return viewVideo(cid, n);
     if (mSession[3] === 'pledge')   return viewPledge(cid, n);
     if (mSession[3] === 'complete') return viewComplete(cid, n);
-    return viewDetail(cid, n);
+    return viewDetail(cid, n, gParam);
   }
   const mSessions = h.match(/^#\/cohort\/([^/]+)\/sessions$/);
-  if (mSessions) return viewSessions(decodeURIComponent(mSessions[1]));
+  if (mSessions) return viewSessions(decodeURIComponent(mSessions[1]), gParam);
   const mCohort = h.match(/^#\/cohort\/([^/]+)$/);
   if (mCohort) return viewCohort(decodeURIComponent(mCohort[1]));
   if (h === '#/dashboard') return viewDashboard();

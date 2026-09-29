@@ -97,23 +97,44 @@
   .grp-dots i.done { background:var(--ok); }
 
   /* ── Groups & students ─────────────────────────────────────────────────── */
-  .group-card { border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
+  /* Enrolment: full names in a numbered list (easy to check against a register),
+     click a name to fix it, paste a whole class list at once. Pseudonymous IDs
+     are hidden unless 'Show IDs' is on. Each group keeps its dashboard colour. */
+  .group-card { border:1px solid color-mix(in srgb, var(--g, var(--accent)) 35%, var(--line));
+                border-left:6px solid var(--g, var(--accent)); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
   .group-head { display:flex; align-items:center; gap:.6rem; padding:.6rem .85rem;
-                background:var(--surface-2); border-bottom:1px solid var(--line); }
-  .group-head input { border:1px solid transparent; background:transparent; font-weight:800;
-                      padding:.2rem .35rem; border-radius:6px; flex:1; }
+                background:color-mix(in srgb, var(--g, var(--accent)) 9%, var(--surface)); border-bottom:1px solid var(--line); }
+  .group-head .gdot { width:12px; height:12px; border-radius:50%; background:var(--g, var(--accent)); flex:0 0 auto; }
+  .group-head input { border:1px solid transparent; background:transparent; font-weight:800; font-size:1rem;
+                      padding:.2rem .35rem; border-radius:6px; flex:1; min-width:0; }
   .group-head input:hover { border-color:var(--line); background:var(--surface); }
-  .group-body { padding:.6rem .85rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.35rem .8rem; }
-  .stu { display:flex; align-items:center; gap:.55rem; min-width:0; }
-  .av { width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent-strong);
-        display:grid; place-items:center; font-size:.74rem; font-weight:900; flex:0 0 auto; }
-  .stu .nm { flex:1; font-size:.87rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .stu .ref { font-size:.66rem; }
+  .group-body { padding:.75rem .9rem .9rem; }
+  .stu-list { list-style:none; display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));
+              gap:.15rem 1rem; margin-bottom:.8rem; counter-reset:stu; }
+  .stu { display:grid; grid-template-columns:26px minmax(0,1fr) auto; align-items:center; gap:.35rem;
+         padding:.1rem .2rem; border-radius:6px; counter-increment:stu; }
+  .stu:hover { background:var(--surface-2); }
+  .stu::before { content:counter(stu); font-size:.74rem; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums; }
+  .stu .nm { font:inherit; font-size:.95rem; font-weight:600; color:var(--ink); border:1px solid transparent; background:transparent;
+             padding:.3rem .45rem; border-radius:6px; width:100%; min-width:0; }
+  .stu .nm:hover { border-color:var(--line); background:var(--surface); }
+  .stu .nm:focus { border-color:var(--accent-strong); background:var(--surface); outline:none; box-shadow:0 0 0 3px var(--accent-soft); }
+  .stu .sub { grid-column:2 / 3; display:flex; gap:.4rem; flex-wrap:wrap; margin:-.2rem 0 .15rem .45rem; }
+  .stu .sub:empty { display:none; }
+  .stu .ref { display:none; font-size:.66rem; }
+  .show-ids .stu .ref { display:inline-block; }
+  .stu .dupnote { font-size:.72rem; color:var(--warn); font-weight:700; }
+  .stu.dup .nm { border-color:color-mix(in srgb, var(--warn) 50%, var(--line)); background:var(--warn-bg); }
   .stu .x { border:none; background:transparent; color:var(--muted); cursor:pointer;
-            font-size:1rem; line-height:1; padding:.1rem .3rem; border-radius:5px; }
+            font-size:1rem; line-height:1; padding:.3rem .45rem; border-radius:5px; }
   .stu .x:hover { background:#fee2e2; color:var(--danger); }
-  .add-row { display:flex; gap:.4rem; margin-top:.2rem; grid-column:1 / -1; }
-  .add-row input { flex:1; padding:.42rem .6rem; font-size:.87rem; }
+  .add-box { display:flex; gap:.5rem; align-items:flex-start; }
+  .add-box textarea { flex:1; min-height:46px; height:46px; resize:vertical; font-size:.95rem; line-height:1.4; padding:.65rem .8rem; }
+  .add-box .btn { min-width:92px; }
+  .add-hint { font-size:.74rem; color:var(--muted); margin-top:.35rem; }
+  .add-hint .flash { color:var(--ok); font-weight:800; }
+  .ids-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.8rem; color:var(--muted); cursor:pointer; }
+  .ids-toggle input { width:auto; accent-color:var(--accent); }
 
   .video-frame { aspect-ratio:16/9; background:#0b1020; border-radius:var(--radius);
                  display:grid; place-items:center; color:#8a93b2; border:1px solid var(--line); }
@@ -147,11 +168,6 @@
            padding:.55rem; position:relative; }
   .embed-tab { position:absolute; top:-11px; left:14px; background:var(--accent-strong); color:#fff;
                font-size:.64rem; font-weight:800; padding:.12rem .55rem; border-radius:6px; letter-spacing:.03em; }
-  .embed-url { font-family:ui-monospace,Consolas,monospace; font-size:.66rem; color:var(--muted);
-               background:var(--surface-2); border-radius:6px; padding:.28rem .5rem; margin-bottom:.5rem;
-               overflow-x:auto; white-space:nowrap; }
-  .embed-note { font-size:.74rem; color:var(--muted); margin-top:.5rem; }
-  .embed-note a { color:var(--accent-strong); }
 
   /* ── Complete ──────────────────────────────────────────────────────────── */
   .done-hero { text-align:center; padding:1.6rem 1.2rem 1.2rem; }
@@ -294,11 +310,46 @@
   .part-l { font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; font-weight:800; color:var(--muted); }
   .part-t { font-family:var(--font-display); font-weight:var(--display-weight); text-transform:var(--display-case);
             letter-spacing:var(--display-track); font-size:1.55rem; line-height:1.05; color:var(--accent-strong); }
-  .part-how { font-size:.84rem; color:var(--muted); font-style:italic; margin:.2rem 0 .8rem; }
   .blk-h { font-weight:800; font-size:.9rem; margin:.6rem 0 .35rem; }
   .blk { margin-left:1.1rem; font-size:.88rem; line-height:1.55; display:flex; flex-direction:column; gap:.3rem; }
   .questions { margin-left:1.3rem; display:flex; flex-direction:column; gap:.45rem; font-size:.95rem; font-weight:600; }
   .questions li::marker { color:var(--accent-strong); font-weight:800; }
+
+  /* Session plan: who you're delivering to (a confirmation, not a question). */
+  .deliver-to { background:color-mix(in srgb, var(--g, var(--accent)) 8%, var(--surface));
+                border:1px solid color-mix(in srgb, var(--g, var(--accent)) 35%, var(--line));
+                border-left:6px solid var(--g, var(--accent)); border-radius:var(--radius); padding:.9rem 1rem 1rem; }
+  .dt-row { display:flex; align-items:center; gap:.75rem; margin-bottom:.85rem; }
+  .dt-row .gdot { width:14px; height:14px; border-radius:50%; background:var(--g, var(--accent)); flex:0 0 auto; }
+  .dt-row .grow { flex:1; min-width:0; }
+  .dt-l { font-size:.7rem; text-transform:uppercase; letter-spacing:.09em; font-weight:800; color:var(--muted); }
+  .dt-name { font-size:1.15rem; }
+  .dt-name .muted { font-size:.85rem; }
+  .dt-note { font-size:.8rem; color:var(--warn); font-weight:700; margin-top:.15rem; }
+  .dt-note:empty { display:none; }
+  .dt-picker { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); padding:.7rem; margin-bottom:.85rem; }
+
+  /* Session plan: switch session for the same group, or open the full list. */
+  .sess-switch { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1.1rem; padding:.7rem .9rem;
+                 background:color-mix(in srgb, var(--g, var(--accent)) 8%, var(--surface));
+                 border:1px solid color-mix(in srgb, var(--g, var(--accent)) 35%, var(--line));
+                 border-left:6px solid var(--g, var(--accent)); border-radius:var(--radius); }
+  .sess-switch .ss-text { min-width:140px; }
+  .sess-switch .dt-l span { color:var(--ink); }
+  .ss-hint { font-size:.76rem; color:var(--muted); }
+  .sess-switch .cells { flex:1; }
+  .cell.current { outline:3px solid var(--ink); outline-offset:2px; }
+  /* The sessions page's group bar. */
+  .se-to { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; margin:-.4rem 0 1.1rem; padding:.7rem .9rem;
+           background:color-mix(in srgb, var(--g, var(--accent)) 8%, var(--surface));
+           border:1px solid color-mix(in srgb, var(--g, var(--accent)) 35%, var(--line));
+           border-left:6px solid var(--g, var(--accent)); border-radius:var(--radius); }
+  .gchips { display:flex; gap:.4rem; flex-wrap:wrap; }
+  .gchip { display:inline-flex; align-items:center; gap:.4rem; font:inherit; font-weight:700; font-size:.9rem;
+           padding:.35rem .8rem; border-radius:99px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .gchip i { width:10px; height:10px; border-radius:50%; background:var(--g); }
+  .gchip[aria-pressed="true"] { background:var(--g); border-color:var(--g); color:#fff; }
+  .gchip[aria-pressed="true"] i { background:#fff; }
 
   .hidden { display:none !important; }
 </style>
@@ -326,7 +377,7 @@
     <div class="hero">
       <img src="../public_widget/assets/rugby-ball@2x.png" alt="">
       <h1 class="display">Try for Tomorrow</h1>
-      <p>Facilitator portal — sign in to deliver a session.</p>
+      <p>Facilitator sign in</p>
     </div>
     <div class="card">
       <label class="field"><span>Email</span><input type="email" id="li-email" placeholder="you@school.ac.uk" autocomplete="username"></label>
@@ -334,12 +385,8 @@
       <button class="btn big wide" id="li-go">Sign in</button>
       <div id="li-err" class="hidden" style="color:var(--danger);font-size:.83rem;margin-top:.6rem"></div>
     </div>
-    <h2 class="section">Demo accounts — tap to sign in</h2>
+    <h2 class="section">Demo accounts</h2>
     <div class="stack" id="li-accounts"></div>
-    <p class="muted" style="font-size:.78rem;margin-top:.8rem">
-      Stands in for your WordPress login. Student names live here and never travel onward.
-      Two or more facilitators may use the same account on different devices at once.
-    </p>
   </div>
 </template>
 
@@ -350,7 +397,7 @@
       <div>
         <div class="eyebrow" id="db-provider"></div>
         <h1>Dashboard</h1>
-        <p class="sub" id="db-hello">Every cohort and group, and where each one is up to.</p>
+        <p class="sub" id="db-hello"></p>
       </div>
       <button class="btn new-btn" id="db-newbtn" aria-expanded="false" aria-controls="db-newrow">
         <span class="plus" aria-hidden="true">+</span>New cohort</button>
@@ -373,16 +420,9 @@
         <input type="search" id="db-search" placeholder="Search…" aria-label="Search cohorts or groups">
       </div>
       <div class="hint">
-        <i class="cell done">✓</i> delivered <i class="cell next">4</i> suggested next <i class="cell">5</i> not yet
-        — tap any session to deliver it to that group; they don’t have to go in order.
+        <i class="cell done">✓</i> delivered <i class="cell next">4</i> next <i class="cell">5</i> not yet
       </div>
       <div class="stack" id="db-list"></div>
-    </div>
-
-    <div class="emulation-note" style="margin-top:1.2rem">
-      <strong>Emulated boundary.</strong> Student names live on the WordPress side only
-      (<code>tft26_wp_emulator_v1</code>). The pledge database only ever sees a pseudonymous ID.
-      Verify with <code>__wp.boundaryReport()</code>.
     </div>
   </div>
 </template>
@@ -394,7 +434,7 @@
     <header class="page">
       <div class="eyebrow" id="mc-provider"></div>
       <h1 id="mc-title">Cohort</h1>
-      <p class="sub">One group holds the whole cohort. Add groups to split it into teams — Boys / Girls, age brackets, or smaller units so two facilitators can each take a group.</p>
+      <p class="sub">Add groups if you deliver to teams separately.</p>
     </header>
 
     <div class="card" style="margin-bottom:1rem">
@@ -404,7 +444,10 @@
 
     <div class="row between" style="margin-bottom:.6rem">
       <h2 class="section" style="margin:0">Groups &amp; students</h2>
-      <button class="btn secondary" id="mc-addgroup">+ Add group</button>
+      <div class="row" style="gap:.8rem">
+        <label class="ids-toggle" title="The pseudonymous ID is the only thing the pledge database ever stores"><input type="checkbox" id="mc-ids"> Show IDs</label>
+        <button class="btn secondary" id="mc-addgroup">+ Add group</button>
+      </div>
     </div>
     <div class="stack" id="mc-groups"></div>
     <div id="mc-warn" class="hidden" style="margin-top:.8rem;font-size:.82rem;color:var(--warn)"></div>
@@ -419,17 +462,16 @@
 <!-- ══ 4. SESSION SELECTION ═══════════════════════════════════════════════ -->
 <template id="v-sessions">
   <div class="wrap">
-    <div class="crumb"><a href="#" id="se-crumb">← Dashboard</a></div>
+    <div class="crumb"><a href="#/dashboard">← Dashboard</a></div>
     <header class="page">
       <div class="eyebrow" id="se-provider"></div>
       <h1 id="se-title">Choose a session</h1>
       <p class="sub" id="se-cohort"></p>
     </header>
-    <div class="stats" style="margin-bottom:1.4rem">
-      <div class="stat"><div class="n" id="se-students">0</div><div class="l">Students</div></div>
-      <div class="stat"><div class="n" id="se-groups">0</div><div class="l">Groups</div></div>
-      <div class="stat"><div class="n" id="se-runs">0</div><div class="l">Deliveries</div></div>
-      <div class="stat"><div class="n" id="se-pledges">0</div><div class="l">Pledges</div></div>
+    <!-- Which group these sessions are for — always on screen, switchable. -->
+    <div class="se-to" id="se-to">
+      <div class="dt-l">Sessions for</div>
+      <div class="gchips" id="se-groups"></div>
     </div>
     <div class="stack" id="se-list"></div>
     <div style="margin-top:1.25rem"><button class="btn secondary" id="se-setup">Manage groups &amp; students</button></div>
@@ -439,7 +481,17 @@
 <!-- ══ 5. SESSION DETAILS ═════════════════════════════════════════════════ -->
 <template id="v-detail">
   <div class="wrap">
-    <div class="crumb"><a href="#" id="sd-crumb">← All sessions</a></div>
+    <div class="crumb"><a href="#/dashboard">← Dashboard</a></div>
+
+    <!-- Switch session (for the same group), or open the full list. -->
+    <div class="sess-switch" id="sd-switch">
+      <div class="ss-text">
+        <div class="dt-l">Sessions for <span id="sd-sw-group"></span></div>
+        <div class="ss-hint">Tap a number to switch session</div>
+      </div>
+      <div class="cells" id="sd-sw-cells"></div>
+      <a class="btn secondary" id="sd-all" href="#">All sessions →</a>
+    </div>
     <div class="rail" id="sd-rail"></div>
     <header class="page">
       <div class="eyebrow" id="sd-eyebrow"></div>
@@ -458,24 +510,30 @@
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:1rem">
-      <h2 class="section" style="margin-top:0">Which group are you delivering to?</h2>
-      <div class="stack" id="sd-groups"></div>
-      <div class="muted" style="font-size:.76rem;margin-top:.6rem">
-        A group marked <span class="pill live">in progress</span> is being delivered right now on another device.
+    <!-- Who this is for: already chosen (from the dashboard, or the sensible default).
+         Changing it is a fallback, tucked behind 'Change group'. -->
+    <div class="deliver-to" id="sd-to">
+      <div class="dt-row">
+        <i class="gdot"></i>
+        <div class="grow">
+          <div class="dt-l">Delivering to</div>
+          <div class="dt-name"><strong id="sd-to-name"></strong> <span class="muted" id="sd-to-meta"></span></div>
+          <div class="dt-note" id="sd-to-note"></div>
+        </div>
+        <button class="btn ghost" id="sd-change" aria-expanded="false" aria-controls="sd-picker">Change group</button>
       </div>
+      <div class="dt-picker hidden" id="sd-picker">
+        <div class="stack" id="sd-groups"></div>
+      </div>
+      <button class="btn big wide" id="sd-start" disabled>Start session →</button>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-top:1rem">
       <div class="row between" style="margin-bottom:.4rem">
         <strong style="font-size:.95rem">Previous deliveries</strong>
         <span class="pill none" id="sd-runs-pill">Never run</span>
       </div>
-      <div id="sd-runs" class="muted" style="font-size:.85rem">Not yet delivered to any group.</div>
-    </div>
-
-    <div style="margin-top:1.25rem">
-      <button class="btn big wide" id="sd-start" disabled>Start session →</button>
+      <div id="sd-runs" class="muted" style="font-size:.85rem">None yet.</div>
     </div>
   </div>
 </template>
@@ -500,13 +558,12 @@
 
     <section class="card part" id="part-film">
       <div class="part-head"><span class="part-n">1</span><div><div class="part-l">Watch &amp; respond</div><h2 class="part-t" id="vd-film"></h2></div></div>
-      <p class="part-how" id="vd-film-how"></p>
       <div class="video-frame" style="margin:.2rem 0 .9rem">
         <div style="text-align:center">
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>
           </svg>
-          <div style="margin-top:.6rem;font-size:.84rem" id="vd-videonote">Placeholder — no video URL set for this session</div>
+          <div style="margin-top:.6rem;font-size:.84rem" id="vd-videonote">Video to be added</div>
         </div>
       </div>
       <div class="blk-h">Pause and discuss</div>
@@ -515,21 +572,17 @@
 
     <section class="card part" id="part-classroom">
       <div class="part-head"><span class="part-n">2</span><div><div class="part-l">Classroom task</div><h2 class="part-t" id="vd-classroom"></h2></div></div>
-      <p class="part-how" id="vd-classroom-how"></p>
       <div id="vd-classroom-body"></div>
     </section>
 
     <section class="card part" id="part-physical">
       <div class="part-head"><span class="part-n">3</span><div><div class="part-l">Physical task</div><h2 class="part-t" id="vd-physical"></h2></div></div>
-      <p class="part-how" id="vd-physical-how"></p>
       <div id="vd-physical-body"></div>
     </section>
 
     <section class="card part" id="part-pledge">
       <div class="part-head"><span class="part-n">4</span><div><div class="part-l">Pledge to the planet</div><h2 class="part-t" id="vd-question"></h2></div></div>
-      <p class="part-how" id="vd-pledge-how"></p>
       <p style="font-weight:700;font-size:.9rem" id="vd-citizen"></p>
-      <p class="muted" style="font-size:.84rem;margin-top:.3rem">Each student takes a turn on the device: pick a pledge, kick it over the posts.</p>
       <button class="btn big wide" id="vd-next" style="margin-top:.9rem">Continue to pledges →</button>
     </section>
   </div>
@@ -543,7 +596,6 @@
     <header class="page">
       <div class="eyebrow" id="dl-eyebrow"></div>
       <h1>Pledge time</h1>
-      <p class="sub">Each student takes a turn on the device. The next one comes up automatically — tap any name to jump.</p>
     </header>
     <div class="deliver">
       <div class="roster-panel">
@@ -553,22 +605,13 @@
         </div>
         <div class="bar-track" style="margin-top:.55rem"><div class="bar-fill" id="dl-bar" style="width:0%"></div></div>
         <div class="roster-list" id="dl-roster"></div>
-        <div class="all-done hidden" id="dl-alldone">Everyone’s had their turn — finish the session when you’re ready.</div>
+        <div class="all-done hidden" id="dl-alldone">Everyone’s had a turn.</div>
         <button class="btn wide" id="dl-finish" style="margin-top:.8rem">Finish session</button>
-        <p class="muted" style="font-size:.74rem;margin-top:.5rem">
-          You can finish early — anyone not yet pledged is simply left out of this run.
-        </p>
       </div>
       <div>
         <div class="embed">
-          <span class="embed-tab">◈ EMBEDDED WIDGET · GitHub Pages</span>
-          <div class="embed-url" id="dl-embed-url"></div>
+          <span class="embed-tab">Pledge widget</span>
           <iframe class="widget-frame" id="dl-frame" title="Pledge widget"></iframe>
-        </div>
-        <div class="embed-note">
-          Everything outside the dashed frame is your WordPress site (emulated here). The frame is the
-          embeddable widget — the only part served from GitHub Pages, that talks to Firebase, and that
-          never stores a name. <a href="../integration.html" target="_blank">How it embeds →</a>
         </div>
       </div>
     </div>

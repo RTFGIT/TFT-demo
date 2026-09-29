@@ -130,7 +130,7 @@ function watchRun() {
 function watchProgramme() {
   onSnapshot(doc(db, 'public', 'session-totals'), (snap) => {
     const n = snap.exists() ? (snap.data().total_pledges || 0) : 0;
-    els.countSub.textContent = n ? `${n.toLocaleString('en-GB')} across the whole programme` : 'Kick-off!';
+    els.countSub.textContent = n ? `${n.toLocaleString('en-GB')} pledges in total` : 'Kick-off!';
   }, () => {});
 }
 
@@ -210,7 +210,7 @@ function setStudent(ref, displayName) {
   }
   student = { ref, name: displayName || null };
   els.idleTitle.textContent  = 'Ready for the next player';
-  els.idleSub.textContent    = 'Your facilitator will choose who’s up next.';
+  els.idleSub.textContent    = '';
   els.whoName.textContent    = displayName || 'Player';
   els.whoRef.textContent     = ref;
   els.whoInitial.textContent = (displayName || '?').trim().charAt(0).toUpperCase();
@@ -243,7 +243,7 @@ window.addEventListener('message', (e) => {
   if (d?.type === 'TFT_SET_STUDENT') setStudent(d.student_ref, d.display_name);
   else if (d?.type === 'TFT_ALL_DONE' && !kicking && els.thanksView.classList.contains('hidden')) {
     els.idleTitle.textContent = 'That’s the whole team!';
-    els.idleSub.textContent   = 'Every player has had their turn. Your facilitator will wrap up.';
+    els.idleSub.textContent   = '';
     showView('idle');
   }
 });
@@ -419,8 +419,8 @@ new ResizeObserver(notifyHeight).observe(document.querySelector('.widget'));
     watchRun();
   } else {
     setCount(0, false);
-    els.idleTitle.textContent = 'Pledge widget';
-    els.idleSub.textContent   = 'Start a session from the facilitator portal to collect pledges here.';
+    els.idleTitle.textContent = 'No session open';
+    els.idleSub.textContent   = 'Start one from the facilitator portal.';
   }
   watchProgramme();
   updateCharCount();

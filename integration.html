@@ -65,14 +65,13 @@
   <header class="page">
     <div class="eyebrow"><a href="index.html" style="color:var(--accent);text-decoration:none">← Demo home</a></div>
     <h1>How the widget embeds on WordPress</h1>
-    <p class="sub">The facilitator portal you tested is a stand-in for <em>WordPress</em>. Only one small piece is the
-      actually-embeddable widget. This page shows exactly where that seam is.</p>
+    <p class="sub">What runs on WordPress, what is embedded, and the embed code.</p>
   </header>
 
   <h2 class="section">The three layers</h2>
   <div class="layers">
     <div class="layer wp">
-      <div class="h">🔒 1 · WordPress</div>
+      <div class="h">WordPress</div>
       <div class="k">tryfortomorrow.org</div>
       <ul>
         <li>Facilitator login</li>
@@ -81,9 +80,9 @@
         <li>Embeds the widget + hands it a student</li>
       </ul>
     </div>
-    <div class="arrow">▶</div>
+    <div class="arrow">→</div>
     <div class="layer widget">
-      <div class="h">◈ 2 · The widget</div>
+      <div class="h">Pledge widget</div>
       <div class="k">GitHub Pages · public_widget/</div>
       <ul>
         <li>The question, options &amp; counter</li>
@@ -92,9 +91,9 @@
         <li>Writes straight to Firebase</li>
       </ul>
     </div>
-    <div class="arrow">▶</div>
+    <div class="arrow">→</div>
     <div class="layer fb">
-      <div class="h">☁ 3 · Firebase</div>
+      <div class="h">Firebase</div>
       <div class="k">Firestore</div>
       <ul>
         <li>Runs &amp; pledges</li>
@@ -105,9 +104,7 @@
     </div>
   </div>
   <p class="muted" style="font-size:.82rem;margin-top:.7rem">
-    Only <strong>layer 2</strong> is uploaded as static files and embedded. The whole
-    <code>facilitator/</code> folder in this demo is a local stand-in for <strong>layer 1</strong> —
-    in production those are WordPress pages and a plugin, not HTML you upload.
+    Only the widget is hosted (on GitHub Pages). The <code>facilitator/</code> folder stands in for WordPress in this demo.
   </p>
 
   <h2 class="section">What a WordPress page with the widget looks like</h2>
@@ -118,12 +115,10 @@
     <div class="wp-content">
       <div class="kicker">Session 1 · Greenhouse Gases &amp; Climate Change</div>
       <h2>Make your pledge</h2>
-      <p class="body">This heading, the menu, and everything around the dashed box is an ordinary WordPress
-        page. The dashed box is the <strong>embedded widget</strong>, served from GitHub Pages — the only
-        part that talks to Firebase, and the only part that never sees a name.</p>
+      <p class="body">Everything outside the dashed box is the WordPress page. The box is the embedded widget.</p>
 
       <div class="embed">
-        <span class="embed-tab">◈ EMBEDDED WIDGET · GitHub Pages</span>
+        <span class="embed-tab">Embedded widget</span>
         <div class="embed-url" id="embed-url">rtfgit.github.io/TFT/pledge-widget.html?provider=demo-college&amp;session=1&amp;run=embed-demo&amp;cohort=demo</div>
         <iframe id="tft-pledge" title="Try for Tomorrow pledge"></iframe>
       </div>
@@ -137,18 +132,17 @@
 
   <h2 class="section">Live messages between the page and the widget</h2>
   <p class="muted" style="font-size:.83rem;margin-bottom:.5rem">
-    A demo student is handed to the widget above by <code>postMessage</code>. Pick an option and submit —
-    the messages the widget posts back to this page appear here.
+    Messages between this page and the widget (<code>postMessage</code>):
   </p>
   <div class="msg-log" id="msg-log">Waiting for the widget…</div>
 
   <h2 class="section">The embed code</h2>
-  <p class="muted" style="font-size:.83rem;margin-bottom:.5rem">1 — drop the iframe onto the WordPress page (URL carries only non-identifying routing):</p>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.5rem">1. Add the iframe to the WordPress page:</p>
   <pre class="code">&lt;<span class="c">iframe</span> <span class="g">id</span>=<span class="g">"tft-pledge"</span>
   <span class="g">src</span>=<span class="g">"https://rtfgit.github.io/TFT/pledge-widget.html?provider=demo-college&amp;session=3&amp;run=abc123&amp;cohort=year-9-rugby"</span>
   <span class="g">title</span>=<span class="g">"Try for Tomorrow pledge"</span> <span class="g">style</span>=<span class="g">"width:100%;border:0"</span>&gt;&lt;/<span class="c">iframe</span>&gt;</pre>
 
-  <p class="muted" style="font-size:.83rem;margin:.9rem 0 .5rem">2 — hand the widget each student. The name is shown on screen but <strong>never travels to Firebase</strong>:</p>
+  <p class="muted" style="font-size:.83rem;margin:.9rem 0 .5rem">2. Send it each student (the name is shown, never stored):</p>
   <pre class="code"><span class="m">// WordPress knows the names; the widget only ever gets the pseudonymous ref.</span>
 frame.contentWindow.postMessage({
   type: <span class="g">'TFT_SET_STUDENT'</span>,
@@ -172,16 +166,14 @@ frame.contentWindow.postMessage({
     </tbody>
   </table>
   <p class="muted" style="font-size:.8rem;margin-top:.6rem">
-    <code>facilitator/</code> and <code>wp-emulator.js</code> deploy <strong>nowhere</strong> — they only stand in for WordPress locally.
+    <code>facilitator/</code> and <code>wp-emulator.js</code> are demo stand-ins and are not deployed.
     Full contract: <code>public_widget/IFRAME_INTEGRATION.md</code>.
   </p>
 
   <div class="card" style="margin-top:1.4rem;border-left:4px solid var(--accent)">
-    <div class="t" style="font-weight:700;margin-bottom:.2rem">🛠 Building the real WordPress side?</div>
+    <div class="t" style="font-weight:700;margin-bottom:.2rem">Building the WordPress side</div>
     <div class="muted" style="font-size:.85rem">
-      There's a full production spec (<code>WORDPRESS_BUILD.md</code> in the project's private repository —
-      ask the RTFxRFL team for access). It covers the Firebase project, the roster tables, the plugin REST API,
-      the WordPress→Firebase token bridge and the build order, mapped straight from the demo you just used.
+      See <code>WORDPRESS_BUILD.md</code> in the private repository (ask the RTFxRFL team for access).
     </div>
   </div>
 

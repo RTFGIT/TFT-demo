@@ -68,7 +68,7 @@ a.card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(18,33,46,
   display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
   background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--radius-sm);
   padding: .68rem 1.2rem; font: inherit; font-weight: 700; cursor: pointer;
-  transition: filter .12s, transform .08s, box-shadow .12s;
+  transition: filter .12s, transform .08s, box-shadow .12s; text-decoration: none;
 }
 .btn:hover:not(:disabled) { filter: brightness(1.05); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
@@ -112,6 +112,7 @@ code, .mono { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; f
 .pill.live    { background: #dbeafe; color: #1e40af; }
 .pill.next    { background: var(--accent); color: var(--accent-ink); }
 .muted  { color: var(--muted); }
+.hidden { display: none !important; }
 .empty  { text-align: center; color: var(--muted); padding: 2.25rem 1rem; font-size: .9rem; }
 .row    { display: flex; gap: .6rem; align-items: center; }
 .row.between { justify-content: space-between; }

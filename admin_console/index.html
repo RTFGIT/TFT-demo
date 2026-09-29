@@ -45,7 +45,7 @@
 <body>
 
 <div class="admin-bar">
-  <span class="brand">◆ Try for Tomorrow Admin</span>
+  <span class="brand">Try for Tomorrow admin</span>
   <span class="mode-pill" id="ab-mode"></span>
   <span class="spacer"></span>
   <span id="ab-user"></span>
@@ -76,7 +76,6 @@
     <header class="page">
       <div class="eyebrow">Programme overview</div>
       <h1>All Providers</h1>
-      <p class="sub">Totals across every educational provider, per session.</p>
     </header>
     <h2 class="section">All-provider totals by session</h2>
     <div class="totals-grid" id="da-totals"></div>
@@ -90,7 +89,7 @@
       <tbody id="da-providers"></tbody>
     </table></div>
     <p class="muted" style="font-size:.78rem;margin-top:.6rem">
-      Each cell is how many times that provider has delivered that session. Click a row to drill in.
+      Deliveries per session. Select a provider for detail.
     </p>
   </div>
 </template>
@@ -117,9 +116,7 @@
       <p class="sub" id="rv-sub"></p>
     </header>
     <div class="emulation-note">
-      <strong>Pseudonymous by design.</strong> Pledges are identified only by <code>student_ref</code>.
-      This console cannot resolve a ref to a person — that mapping exists solely inside the provider's
-      WordPress account. That is the privacy boundary working as intended, not missing data.
+      Pledges carry a pseudonymous ID only. Names stay in WordPress.
     </div>
     <div class="stack" id="rv-pledges"></div>
   </div>
