@@ -49,7 +49,7 @@ function save(s) { localStorage.setItem(LS_WP, JSON.stringify(s)); }
  */
 export const WP_ROUTES = {
   login:    { hash: '#/login',                        permalink: '/facilitator/'                                 },
-  cohorts:  { hash: '#/cohorts',                      permalink: '/facilitator/cohorts/'                         },
+  dashboard:{ hash: '#/dashboard',                    permalink: '/facilitator/dashboard/'                       },
   cohort:   { hash: '#/cohort/:c',                    permalink: '/facilitator/cohort/:c/'                       },
   sessions: { hash: '#/cohort/:c/sessions',           permalink: '/facilitator/cohort/:c/sessions/'              },
   detail:   { hash: '#/cohort/:c/session/:n',         permalink: '/facilitator/cohort/:c/session/:n/'            },

@@ -25,7 +25,7 @@
 import { SESSIONS } from './public_widget/session-config.js';
 
 /** Bump when the generated programme changes, so stored seeds refresh. */
-export const DEMO_SEED_VERSION = 2;
+export const DEMO_SEED_VERSION = 3;
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 /** 32-bit FNV-1a with a murmur3 finaliser (good avalanche, tiny). */
@@ -151,7 +151,19 @@ const PLAN = [
       { id: 'year10-enrichment', label: 'Year 10 Enrichment', groups: [
         { id: 'g1', label: 'Group 1', size: 16, day: 3, weeks: [1, 0] }] },
       { id: 'year8-taster', label: 'Year 8 Taster', groups: [
-        { id: 'g1', label: 'Group 1', size: 12, day: 5, weeks: [] }] }
+        { id: 'g1', label: 'Group 1', size: 12, day: 5, weeks: [] }] },
+      // Finished the whole programme last term.
+      { id: 'year7-tag-rugby', label: 'Year 7 Tag Rugby', groups: [
+        { id: 'g1', label: 'Group 1', size: 15, day: 1, weeks: [11, 10, 9, 8, 7, 6] }] },
+      // Groups that started in different weeks — then went quiet (dashboard: needs attention).
+      { id: 'after-school-club', label: 'After-School Club', groups: [
+        { id: 'g1', label: 'Juniors', size: 10, day: 3, weeks: [8, 7, 6] },
+        { id: 'g2', label: 'Inters',  size: 11, day: 3, weeks: [7, 6] },
+        { id: 'g3', label: 'Seniors', size: 9,  day: 3, weeks: [6] }] },
+      // Mid-session right now on a colleague's device (dashboard: live now).
+      { id: 'year8-pe', label: 'Year 8 PE', groups: [
+        { id: 'g1', label: 'Group A', size: 13, day: 2, weeks: [2, 1, 'open'] },
+        { id: 'g2', label: 'Group B', size: 12, day: 4, weeks: [2, 1, 0] }] }
     ] },
   { id: 'demo-academy', name: 'Demo Academy', login: true,
     contact_name: 'Sam Coordinator', contact_email: 'programme@demoacademy.ac.uk',

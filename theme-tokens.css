@@ -45,6 +45,9 @@
   --radius-sm: 4px;
   --shadow:    0 1px 2px rgba(0,0,0,.06), 0 8px 22px rgba(60,70,40,.08);
   --chrome-bg: #5e8553;
+  /* Group colours on the dashboard — each group in a cohort gets its own. */
+  --group-1: #5e8553; --group-2: #348aa7; --group-3: #6a4435;
+  --group-4: #b8893a; --group-5: #7d6aa6; --group-6: #3f7f7a;
   --chrome-ink:#fffded;
 
   --paper-image: linear-gradient(rgba(94,133,83,.13) 1px, transparent 1px),
