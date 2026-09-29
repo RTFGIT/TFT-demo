@@ -33,6 +33,9 @@
   .stage { position:relative; height:220px; color:var(--stage-ink); overflow:hidden;
            background:var(--scene-sky-top); }
   .scene { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  /* Ripped-paper edge where the pitch meets the page (direction D only). */
+  .stage::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height:14px; z-index:2;
+                  background:var(--torn-stage); background-size:100% 100%; pointer-events:none; }
   .stage-head { position:absolute; top:0; left:0; right:0; display:flex;
                 justify-content:space-between; align-items:flex-start; padding:.9rem 1.05rem;
                 pointer-events:none; }
@@ -65,7 +68,7 @@
   .goal { position:absolute; left:0; right:0; top:43%; text-align:center; pointer-events:none;
           opacity:0; transform:scale(.6); }
   .goal.show { animation:goal-pop 1.9s cubic-bezier(.2,1.4,.4,1) forwards; }
-  .goal .big { font-family:var(--font-display); font-weight:900; text-transform:uppercase;
+  .goal .big { font-family:var(--font-display); font-weight:var(--display-weight); text-transform:uppercase;
                font-size:2.1rem; letter-spacing:.02em; line-height:1; color:var(--stage-ink);
                text-shadow:0 2px 0 rgba(0,0,0,.18), 0 6px 22px rgba(0,0,0,.35); }
   .goal .small { display:inline-block; margin-top:.35rem; font-weight:800; font-size:.8rem;
@@ -79,7 +82,7 @@
   }
 
   /* ── Body ──────────────────────────────────────────────────────────────── */
-  .body { padding:1.3rem 1.35rem 1.45rem; }
+  .body { padding:1.3rem 1.35rem 1.45rem; background-image:var(--paper-image); background-size:var(--paper-size); }
   .hidden { display:none !important; }
   .view { animation:view-in .28s ease-out; }
   @keyframes view-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
@@ -94,7 +97,7 @@
   /* Turn */
   .turn { display:flex; align-items:center; gap:.75rem; margin-bottom:1.05rem; }
   .avatar { width:46px; height:46px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
-            display:grid; place-items:center; font-family:var(--font-display); font-weight:900;
+            display:grid; place-items:center; font-family:var(--font-display); font-weight:var(--display-weight);
             font-size:1.3rem; flex:0 0 auto; box-shadow:0 0 0 4px var(--accent-soft); }
   .turn .hi { font-size:.78rem; color:var(--muted); font-weight:600; }
   .turn .nm { font-size:1.45rem; line-height:1.1; }
@@ -116,7 +119,7 @@
   .opt.sel { border-color:var(--accent); background:var(--accent-soft);
              box-shadow:0 6px 18px -8px var(--accent); transform:translateY(-1px); }
   .opt .n { width:30px; height:30px; flex:0 0 auto; border-radius:8px;
-            display:grid; place-items:center; font-family:var(--font-display); font-weight:900; font-size:1rem;
+            display:grid; place-items:center; font-family:var(--font-display); font-weight:var(--display-weight); font-size:1rem;
             background:var(--surface-2); border:1.5px solid var(--line); color:var(--ink);
             transition:background .15s, color .15s, transform .25s; }
   .opt.sel .n { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); transform:rotate(-6deg) scale(1.08); }
@@ -140,7 +143,7 @@
 
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:.55rem;
          background:var(--accent); color:var(--accent-ink); border:none; border-radius:var(--radius-sm);
-         padding:.9rem 1.3rem; font-family:var(--font-display); font-weight:800; font-size:1.05rem;
+         padding:.9rem 1.3rem; font-family:var(--font-display); font-weight:var(--display-weight); font-size:1.05rem;
          text-transform:var(--display-case); letter-spacing:.02em; cursor:pointer;
          box-shadow:0 8px 20px -10px var(--accent); transition:transform .1s, filter .15s, opacity .15s; }
   .btn:hover:not(:disabled) { filter:brightness(1.05); transform:translateY(-1px); }
@@ -166,12 +169,22 @@
   .card .who { font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; font-weight:800; color:var(--accent-strong); }
   .card .txt { font-size:1.12rem; line-height:1.35; margin-top:.3rem; font-weight:700; }
   .stamp { position:absolute; right:.8rem; top:-.9rem; background:var(--ok); color:#fff;
-           font-family:var(--font-display); font-weight:900; text-transform:uppercase; font-size:.78rem;
+           font-family:var(--font-display); font-weight:var(--display-weight); text-transform:uppercase; font-size:.78rem;
            letter-spacing:.06em; padding:.3rem .65rem; border-radius:6px; transform:rotate(6deg);
            box-shadow:0 6px 14px -6px rgba(0,0,0,.4); animation:stamp .45s .25s cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes stamp { from { opacity:0; transform:rotate(-12deg) scale(2.2); } }
   .thanks h3 { font-size:1.3rem; margin-bottom:.2rem; }
   .thanks p { color:var(--muted); font-size:.9rem; margin-bottom:1rem; }
+
+  /* D · Try for Tomorrow — the design sheet's type treatment. */
+  [data-theme="brand"] .stage-head { text-shadow:0 1px 6px rgba(0,0,0,.35); }
+  [data-theme="brand"] .question { font-size:1.6rem; line-height:1.02; color:var(--accent-strong); }
+  [data-theme="brand"] .prompt, [data-theme="brand"] .idle p { font-style:italic; font-weight:300; }
+  [data-theme="brand"] .opt { background:var(--surface); }
+  [data-theme="brand"] .goal .big { font-size:2.6rem; letter-spacing:.03em; }
+  [data-theme="brand"] .turn .nm { font-size:1.9rem; }
+  [data-theme="brand"] .btn { font-size:1.45rem; letter-spacing:.04em; padding:.72rem 1.3rem; }
+  [data-theme="brand"] .chip { font-family:var(--font-display); font-size:.95rem; letter-spacing:.04em; font-weight:400; }
 
   @media (max-width:480px) {
     .stage { height:188px; }

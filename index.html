@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="demo-theme.css">
 <script src="theme.js"></script>
 <!-- All three directions' display fonts, so each picker card renders in its own type. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@800&family=Nunito:wght@400;900&family=DM+Sans:wght@400&family=Space+Grotesk:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@800&family=Nunito:wght@400;900&family=DM+Sans:wght@400&family=Space+Grotesk:wght@700&family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400&display=swap">
 <style>
   .boundary { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.5rem; align-items:stretch; }
   .store { border-radius:12px; padding:.85rem .95rem; border:1px solid var(--line); background:#fff; }
@@ -31,7 +31,8 @@
   .intro-steps { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
   .intro-steps span { background:var(--accent-soft); color:var(--accent-strong); border-radius:8px; padding:.3rem .6rem; font-size:.8rem; font-weight:700; }
   /* Direction picker — each card re-scopes the tokens with its own data-theme. */
-  .dirs { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.8rem; }
+  .dirs { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.8rem; }
+  .dir .body { background-image:var(--paper-image); background-size:var(--paper-size); }
   .dir { text-align:left; cursor:pointer; color:var(--ink); background:var(--surface);
          border:2px solid var(--line); border-radius:var(--radius); overflow:hidden; padding:0;
          font:inherit; font-family:var(--font-body); transition:transform .12s, border-color .12s, box-shadow .12s; }
@@ -97,7 +98,7 @@
       <button class="btn" aria-pressed="true">Live</button></div>
   </div>
 
-  <h2 class="section">Look &amp; feel — three directions to choose from</h2>
+  <h2 class="section">Look &amp; feel — four directions to choose from</h2>
   <div class="dirs">
     <button class="dir" data-theme="matchday" data-pick="matchday">
       <div class="sky"><div class="posts"></div></div>
@@ -116,6 +117,12 @@
       <div class="body"><div class="name">C · Fresh</div>
         <div class="desc">Bright, flat and graphic with one bold accent. Modern and neutral — the easiest to wrap brand assets around.</div>
         <div class="chips"><i style="background:var(--accent)"></i><i style="background:var(--pop)"></i><i style="background:var(--scene-grass-b)"></i><span class="pick">Selected</span></div></div>
+    </button>
+    <button class="dir" data-theme="brand" data-pick="brand">
+      <div class="sky"><div class="posts"></div></div>
+      <div class="body"><div class="name">D · Try for Tomorrow</div>
+        <div class="desc">From the programme's design sheet: khaki, brown, cyan and ivory, graph paper and ripped-paper edges.</div>
+        <div class="chips"><i style="background:#5e8553"></i><i style="background:#6a4435"></i><i style="background:#348aa7"></i><i style="background:#fffded"></i><span class="pick">Selected</span></div></div>
     </button>
   </div>
   <p class="muted" style="font-size:.78rem;margin-top:.5rem">Applies everywhere — portal, widget and admin — and is remembered on this device.

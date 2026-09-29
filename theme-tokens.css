@@ -11,6 +11,8 @@
    --stage-*   text drawn over the scene
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* Texture tokens (--paper-*, --torn-*) default to none; only D uses them.   */
+
 /* ── A · MATCHDAY — floodlit stadium, bold condensed type, scoreboard energy ─ */
 :root, [data-theme="matchday"] {
   --font-body:    'Barlow', 'Segoe UI', system-ui, sans-serif;
@@ -43,6 +45,11 @@
   --stage-ink:   #ffffff;
   --stage-muted: rgba(220,228,255,.72);
   --stage-chip:  rgba(255,255,255,.12);
+
+  --paper-image: none;
+  --paper-size:  auto;
+  --torn-chrome: none;
+  --torn-stage:  none;
 
   --scene-sky-top:    #040a1c;
   --scene-sky-bottom: #1b2c63;
@@ -153,4 +160,63 @@
   --scene-glow:       #5b5bf6;
   --scene-tee:        #ff4f5e;
   --confetti:         #ff4f5e,#5b5bf6,#2dbd8c,#ffc94d,#151a2d;
+}
+
+/* ── D · TRY FOR TOMORROW — from the programme's one-page design sheet ──────
+   Palette: khaki green #5E8553 · muted brown #6A4435 · pacific cyan #348AA7 ·
+   ivory #FFFDED · black #000000. Graph-paper backgrounds, ripped-paper edges.
+   Type: the sheet specifies NORWESTER (titles) and INDIVISIBLE (body). Neither
+   is on Google Fonts, so Bebas Neue and Plus Jakarta Sans stand in until the
+   licensed files are self-hosted — swap the two --font-* lines when they are. */
+[data-theme="brand"] {
+  --font-body:    'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Bebas Neue', 'Arial Narrow', 'Segoe UI', sans-serif;
+  --display-case: uppercase;
+  --display-track: .025em;
+  --display-weight: 400;
+
+  --bg:        #fffded;
+  --surface:   #fffded;
+  --surface-2: #f5f3e1;
+  --ink:       #111111;
+  --muted:     #66675a;
+  --line:      #dedcc6;
+  --accent:        #5e8553;   /* khaki green */
+  --accent-ink:    #fffded;   /* ivory */
+  --accent-soft:   #e8efdf;
+  --accent-strong: #4a6b41;
+  --pop:       #348aa7;       /* pacific cyan */
+  --ok:        #5e8553;
+  --warn:      #6a4435;
+  --warn-bg:   #f7efe4;
+  --danger:    #a3402c;
+  --radius:    6px;
+  --radius-sm: 4px;
+  --shadow:    0 1px 2px rgba(0,0,0,.06), 0 8px 22px rgba(60,70,40,.08);
+  --chrome-bg: #5e8553;
+  --chrome-ink:#fffded;
+
+  --paper-image: linear-gradient(rgba(94,133,83,.13) 1px, transparent 1px),
+                 linear-gradient(90deg, rgba(94,133,83,.13) 1px, transparent 1px);
+  --paper-size:  20px 20px;
+  --torn-chrome: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 18' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L0,3 L6,5.3 L13.8,6.6 L23,9 L31.5,12 L38.1,10.8 L42.5,10.5 L52.9,11.9 L60.5,13.2 L69,9.4 L79.4,7.1 L89.3,6.7 L95.3,7.7 L105.9,9.1 L116,3.6 L124,8.6 L129.3,16 L135.9,6.8 L146.4,8.7 L153.2,6.1 L160.2,6.7 L168.5,5.6 L175.7,12.5 L184.1,8.7 L192.9,13.3 L201.9,5.8 L208.3,6.6 L217.9,15.7 L227.6,3.9 L232.7,3.9 L238.3,10 L245.5,9.5 L255.9,12.7 L266.1,13 L272,3.1 L276.6,3 L282.2,11.2 L291,5.6 L296.6,7.1 L301.5,11.4 L311.9,10 L316,12.9 L326.8,9.2 L332.7,5.5 L340.6,3.6 L349.5,10.9 L353.7,4.2 L358.7,10.6 L362.9,12.7 L373.9,13.5 L380.8,5.7 L391,7.4 L397.8,12.8 L404.3,9.8 L410.6,11 L416,6.4 L427,10 L437.4,5.2 L442.3,8.5 L451.7,13.4 L457,7.9 L465.7,8.7 L473.2,11.3 L482.5,3.3 L490.3,5.2 L496.3,5.6 L503.3,3.8 L513.1,13.1 L521.8,16.5 L531.2,9.6 L541.5,3.4 L546,7.2 L550.1,9.7 L555.4,4.5 L564.2,5.7 L575.1,7.6 L584.5,7.4 L589,5.5 L599.8,4.7 L600,4.7 L600,0 Z' fill='%235E8553'/%3E%3C/svg%3E");
+  --torn-stage:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 18' preserveAspectRatio='none'%3E%3Cpath d='M0,18 L0,3 L6,5.3 L13.8,6.6 L23,9 L31.5,12 L38.1,10.8 L42.5,10.5 L52.9,11.9 L60.5,13.2 L69,9.4 L79.4,7.1 L89.3,6.7 L95.3,7.7 L105.9,9.1 L116,3.6 L124,8.6 L129.3,16 L135.9,6.8 L146.4,8.7 L153.2,6.1 L160.2,6.7 L168.5,5.6 L175.7,12.5 L184.1,8.7 L192.9,13.3 L201.9,5.8 L208.3,6.6 L217.9,15.7 L227.6,3.9 L232.7,3.9 L238.3,10 L245.5,9.5 L255.9,12.7 L266.1,13 L272,3.1 L276.6,3 L282.2,11.2 L291,5.6 L296.6,7.1 L301.5,11.4 L311.9,10 L316,12.9 L326.8,9.2 L332.7,5.5 L340.6,3.6 L349.5,10.9 L353.7,4.2 L358.7,10.6 L362.9,12.7 L373.9,13.5 L380.8,5.7 L391,7.4 L397.8,12.8 L404.3,9.8 L410.6,11 L416,6.4 L427,10 L437.4,5.2 L442.3,8.5 L451.7,13.4 L457,7.9 L465.7,8.7 L473.2,11.3 L482.5,3.3 L490.3,5.2 L496.3,5.6 L503.3,3.8 L513.1,13.1 L521.8,16.5 L531.2,9.6 L541.5,3.4 L546,7.2 L550.1,9.7 L555.4,4.5 L564.2,5.7 L575.1,7.6 L584.5,7.4 L589,5.5 L599.8,4.7 L600,4.7 L600,18 Z' fill='%23FFFDED'/%3E%3C/svg%3E");
+
+  --stage-ink:   #fffded;
+  --stage-muted: rgba(255,253,237,.82);
+  --stage-chip:  rgba(0,0,0,.18);
+
+  --scene-sky-top:    #2d7b95;
+  --scene-sky-bottom: #a9d5df;
+  --scene-light:      rgba(255,253,237,.45);
+  --scene-stand:      #6a4435;
+  --scene-crowd:      #fffded,#348aa7,#a8c49c,#e9cfa8;
+  --scene-grass-a:    #5e8553;
+  --scene-grass-b:    #6a935e;
+  --scene-lines:      rgba(255,253,237,.9);
+  --scene-posts:      #fffded;
+  --scene-pads:       #348aa7;
+  --scene-glow:       #fffded;
+  --scene-tee:        #6a4435;
+  --confetti:         #5e8553,#6a4435,#348aa7,#fffded,#a8c49c;
 }

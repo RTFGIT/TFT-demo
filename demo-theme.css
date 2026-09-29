@@ -13,7 +13,9 @@
 
 body {
   font-family: var(--font-body);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--paper-image);
+  background-size: var(--paper-size);
   color: var(--ink);
   line-height: 1.5;
   padding: 1.75rem 1rem 4rem;
@@ -138,6 +140,15 @@ code, .mono { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; f
 .theme-switch button { border: none; background: transparent; color: inherit; font: inherit; font-size: .7rem;
   font-weight: 700; padding: .12rem .55rem; border-radius: 99px; cursor: pointer; opacity: .75; }
 .theme-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); opacity: 1; }
+
+/* ── D · Try for Tomorrow: the design sheet's heading treatment ──────────── */
+[data-theme="brand"] header.page h1 { color: var(--accent); font-size: 2.7rem; line-height: .95;
+  padding-bottom: .3rem; border-bottom: 3px solid var(--accent); display: inline-block; }
+[data-theme="brand"] header.page p.sub { font-style: italic; font-weight: 300; }
+[data-theme="brand"] h2.section { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem;
+  letter-spacing: .03em; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: .12rem; }
+[data-theme="brand"] .card { box-shadow: 0 1px 0 rgba(0,0,0,.04); }
+[data-theme="brand"] .btn.big { font-size: 1.4rem; font-weight: 400; letter-spacing: .04em; padding: .78rem 1.4rem; }
 
 @media (max-width: 560px) {
   body { padding: 1.1rem .8rem 3rem; }

@@ -19,7 +19,10 @@
   .wp-bar { position:fixed; top:0; left:0; right:0; height:38px; background:var(--chrome-bg);
             color:var(--chrome-ink); font-size:.78rem; display:flex; align-items:center;
             gap:.9rem; padding:0 1rem; z-index:50; }
-  .wp-bar .brand { font-weight:800; color:#fff; font-family:var(--font-display);
+  /* Ripped-paper edge under the bar (direction D only; 'none' elsewhere). */
+  .wp-bar::after { content:''; position:absolute; left:0; right:0; top:100%; height:12px;
+                   background:var(--torn-chrome); background-size:100% 100%; pointer-events:none; }
+  .wp-bar .brand { font-weight:var(--display-weight); color:#fff; font-family:var(--font-display);
                    text-transform:var(--display-case); letter-spacing:.02em; font-size:.92rem;
                    display:flex; align-items:center; gap:.4rem; }
   .wp-bar .brand img { width:18px; height:auto; }
@@ -55,7 +58,7 @@
           padding:.65rem .8rem; font:inherit; color:inherit; transition:border-color .12s, transform .12s; }
   .acct:hover { border-color:var(--accent-strong); transform:translateY(-1px); }
   .acct .av { width:34px; height:34px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
-              display:grid; place-items:center; font-weight:900; font-family:var(--font-display); }
+              display:grid; place-items:center; font-weight:var(--display-weight); font-family:var(--font-display); }
   .acct .grow { flex:1; min-width:0; }
   .acct small { color:var(--muted); font-family:ui-monospace,Consolas,monospace; font-size:.72rem; }
 
@@ -80,7 +83,7 @@
   .session-row.next { border:2px solid var(--accent); box-shadow:0 10px 26px -14px var(--accent); }
   .session-row .num { width:42px; height:42px; border-radius:var(--radius-sm); background:var(--surface-2);
                       border:1.5px solid var(--line); display:grid; place-items:center;
-                      font-weight:900; font-family:var(--font-display); font-size:1.15rem; flex:0 0 auto; }
+                      font-weight:var(--display-weight); font-family:var(--font-display); font-size:1.15rem; flex:0 0 auto; }
   .session-row.done .num { background:#d1fae5; border-color:#6ee7b7; color:#065f46; }
   .session-row.next .num { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .session-row .grow { flex:1; min-width:0; }
@@ -154,7 +157,7 @@
   .breakdown { display:flex; flex-direction:column; gap:.55rem; }
   .bk { display:grid; grid-template-columns:1fr auto; gap:.2rem .7rem; align-items:center; }
   .bk .t { font-size:.86rem; }
-  .bk .c { font-weight:900; font-family:var(--font-display); font-size:1.05rem; }
+  .bk .c { font-weight:var(--display-weight); font-family:var(--font-display); font-size:1.05rem; }
   .bk .bar-track { grid-column:1 / -1; }
   .bk.top .t { font-weight:800; }
   .own-list { margin-top:.4rem; display:flex; flex-direction:column; gap:.35rem; }
@@ -162,7 +165,7 @@
                   border-radius:var(--radius-sm); padding:.45rem .6rem; }
   .next-card { display:flex; align-items:center; gap:.9rem; }
   .next-card .num { width:48px; height:48px; border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-ink);
-                    display:grid; place-items:center; font-weight:900; font-family:var(--font-display); font-size:1.3rem; flex:0 0 auto; }
+                    display:grid; place-items:center; font-weight:var(--display-weight); font-family:var(--font-display); font-size:1.3rem; flex:0 0 auto; }
   .hidden { display:none !important; }
 </style>
 </head>

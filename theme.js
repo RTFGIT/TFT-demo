@@ -3,7 +3,7 @@
  *
  * A CLASSIC script (not a module) loaded in <head>, so data-theme is set before
  * the page renders — no flash of the wrong look. Order of precedence:
- *   ?theme=matchday|grow|fresh   (remembered)   → localStorage → default
+ *   ?theme=matchday|grow|fresh|brand   (remembered)   → localStorage → default
  *
  * Same-origin pages follow each other through the `storage` event, so switching
  * the direction on the facilitator page also restyles the embedded widget.
@@ -13,7 +13,9 @@
   var THEMES = {
     matchday: { label: 'A · Matchday',      fonts: 'family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700' },
     grow:     { label: 'B · Grow Together', fonts: 'family=Nunito:wght@400;600;700;800;900' },
-    fresh:    { label: 'C · Fresh',         fonts: 'family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700' }
+    fresh:    { label: 'C · Fresh',         fonts: 'family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700' },
+    // Stand-ins for the design sheet's Norwester + Indivisible (not on Google Fonts).
+    brand:    { label: 'D · Try for Tomorrow', fonts: 'family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,600' }
   };
   var KEY = 'tft26_theme', DEFAULT = 'matchday';
 
