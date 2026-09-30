@@ -308,7 +308,7 @@ export function onAuthStateChanged(auth, cb) {
     // firestore.rules hard-rejects identifying fields in production.
     for (const c of p.cohorts) {
       const cbase = base + '/cohorts/' + c.cohort_id;
-      store[cbase] = { label: c.label, active: true, student_count: c.students.length };
+      store[cbase] = { label: c.label, foundation: c.foundation, school: c.school, active: true, student_count: c.students.length };
       for (const g of c.groups) {
         store[cbase + '/groups/' + g.id] = {
           label: g.label, size: c.students.filter(s => s.group_id === g.id).length
@@ -334,6 +334,15 @@ export function onAuthStateChanged(auth, cb) {
           status: pl.status, created_at: ts(pl.created_at)
         };
       }
+    }
+
+    // Group surveys (baseline / final) — one per group per phase, no individuals.
+    for (const sv of p.surveys || []) {
+      store[base + '/surveys/' + sv.id] = {
+        cohort_id: sv.cohort_id, group_id: sv.group_id, phase: sv.phase, survey_version: sv.survey_version,
+        facilitator: sv.facilitator, foundation: sv.foundation, school: sv.school,
+        present: sv.present, answers: sv.answers, created_at: ts(sv.created_at)
+      };
     }
   }
 

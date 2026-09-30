@@ -23,9 +23,10 @@
  */
 
 import { SESSIONS } from './public_widget/session-config.js';
+import { SURVEY, surveyId, tallyLabels } from './public_widget/survey-config.js';
 
 /** Bump when the generated programme changes, so stored seeds refresh. */
-export const DEMO_SEED_VERSION = 4;
+export const DEMO_SEED_VERSION = 6;
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 /** 32-bit FNV-1a with a murmur3 finaliser (good avalanche, tiny). */
@@ -143,7 +144,7 @@ const OWN_IDEAS = {
 // Runs with weeks <= 1 (i.e. within the last fortnight) are "recent" and still
 // have some pledges awaiting moderation.
 const PLAN = [
-  { id: 'demo-college', name: 'Demo College', login: true,
+  { id: 'demo-college', name: 'Demo College', login: true, foundation: 'Northvale RL Foundation',
     contact_name: 'Alex Facilitator', contact_email: 'lead@democollege.ac.uk',
     cohorts: [
       { id: 'year9-rugby', label: 'Year 9 Rugby', groups: [
@@ -166,7 +167,7 @@ const PLAN = [
         { id: 'g1', label: 'Group A', size: 13, day: 2, weeks: [2, 1, 'open'] },
         { id: 'g2', label: 'Group B', size: 12, day: 4, weeks: [2, 1, 0] }] }
     ] },
-  { id: 'demo-academy', name: 'Demo Academy', login: true,
+  { id: 'demo-academy', name: 'Demo Academy', login: true, foundation: 'Eastbrook Community Foundation',
     contact_name: 'Sam Coordinator', contact_email: 'programme@demoacademy.ac.uk',
     cohorts: [
       { id: 'year7-healthy-futures', label: 'Year 7 Healthy Futures', groups: [
@@ -175,33 +176,82 @@ const PLAN = [
       { id: 'year10-sports-leaders', label: 'Year 10 Sports Leaders', groups: [
         { id: 'g1', label: 'Group 1', size: 14, day: 3, weeks: [6, 5, 4, 2, 1] }] }
     ] },
-  { id: 'demo-northfield', name: 'Northfield Academy', login: false,
+  { id: 'demo-northfield', name: 'Northfield Academy', login: false, foundation: 'Northvale RL Foundation',
     contact_name: 'Jordan Blake', contact_email: 'pe.department@northfield-academy.example',
     cohorts: [
       { id: 'year9-pe', label: 'Year 9 PE', groups: [
         { id: 'g1', label: 'Boys',  sex: 'm', size: 11, day: 2, weeks: [2, 1, 0] },
-        { id: 'g2', label: 'Girls', sex: 'f', size: 10, day: 3, weeks: [2, 1, 'open'] }] }
+        { id: 'g2', label: 'Girls', sex: 'f', size: 10, day: 3, weeks: [2, 1, 'open'] }] },
+      // Finished last term — baseline and final surveys both in.
+      { id: 'year8-pe-summer', label: 'Year 8 PE (summer)', groups: [
+        { id: 'g1', label: 'Boys',  sex: 'm', size: 12, day: 2, weeks: [17, 16, 15, 14, 13, 12] },
+        { id: 'g2', label: 'Girls', sex: 'f', size: 11, day: 3, weeks: [17, 16, 15, 14, 13, 12] }] }
     ] },
-  { id: 'demo-riverside', name: 'Riverside Juniors RLFC', login: false,
+  { id: 'demo-riverside', name: 'Riverside Juniors RLFC', login: false, foundation: 'Riverside RL Foundation',
     contact_name: 'Chris Walker', contact_email: 'juniors@riverside-rlfc.example',
     cohorts: [
-      { id: 'u12s', label: 'U12s', groups: [
+      { id: 'u12s', label: 'U12s', school: 'Riverside Primary School', groups: [
         { id: 'g1', label: 'Group 1', size: 12, day: 4, weeks: [9, 8, 7, 6, 5, 4] }] }
     ] },
-  { id: 'demo-hillcrest', name: 'Hillcrest Primary School', login: false,
+  { id: 'demo-hillcrest', name: 'Hillcrest Primary School', login: false, foundation: 'Eastbrook Community Foundation',
     contact_name: 'Rachel Okafor', contact_email: 'office@hillcrest-primary.example',
     cohorts: [
       { id: 'year6', label: 'Year 6', groups: [
         { id: 'g1', label: 'Group A', size: 11, day: 1, weeks: [0] },
-        { id: 'g2', label: 'Group B', size: 10, day: 2, weeks: [0] }] }
+        { id: 'g2', label: 'Group B', size: 10, day: 2, weeks: [0] }] },
+      { id: 'year5', label: 'Year 5', groups: [
+        { id: 'g1', label: 'Group A', size: 12, day: 3, weeks: [14, 13, 12, 11, 10, 9] },
+        { id: 'g2', label: 'Group B', size: 11, day: 4, weeks: [14, 13, 12, 11, 10, 9] }] }
     ] },
-  { id: 'demo-westgate', name: 'Westgate Community Trust', login: false,
+  { id: 'demo-westgate', name: 'Westgate Community Trust', login: false, foundation: 'Riverside RL Foundation',
     contact_name: 'Dan Hughes', contact_email: 'schools@westgate-trust.example',
     cohorts: [
-      { id: 'girls-academy-squad', label: 'Girls’ Academy Squad', groups: [
-        { id: 'g1', label: 'Group 1', sex: 'f', size: 10, day: 4, weeks: [5, 4, 2] }] }
+      { id: 'girls-academy-squad', label: 'Girls’ Academy Squad', school: 'Westgate Academy', groups: [
+        { id: 'g1', label: 'Group 1', sex: 'f', size: 10, day: 4, weeks: [5, 4, 2] }] },
+      { id: 'u13-girls', label: 'U13 Girls', school: 'Westgate Academy', groups: [
+        { id: 'g1', label: 'Group 1', sex: 'f', size: 12, day: 2, weeks: [15, 14, 13, 11, 10, 9] }] }
     ] }
 ];
+
+// ─── Group surveys ────────────────────────────────────────────────────────────
+/**
+ * Demo only: for each question, which end of its options a group drifts
+ * towards as its `level` rises (0 = the first option, e.g. "Yes"; otherwise
+ * the last, e.g. "Very confident"), so baseline → final shows some change.
+ * It isn't a right answer — the tool itself has none.
+ */
+const SURVEY_TOWARDS_FIRST = new Set(['interested', 'action_important', 'know_what_to_do']);
+
+/**
+ * A group's survey response: how many hands went up for each answer. `level`
+ * is where the group stands (0–1) at that point; `offsets` nudge each question
+ * so they don't all move in step. A group's baseline and final share the same
+ * offsets, so the change between them is (roughly) the programme's effect.
+ */
+function surveyResponse(rng, phase, level, offsets, size) {
+  const present = Math.max(1, size - intBetween(rng, 0, 2));
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const answers = {};
+  for (const q of SURVEY.questions) {
+    const l = clamp01(level + (offsets[q.id] || 0));
+    if (q.type === 'poll') {
+      // Each young person picks an option near the group's level (a few don't answer).
+      const k = q.options.length;
+      const centre = SURVEY_TOWARDS_FIRST.has(q.id) ? 1 - l : l;
+      const weights = q.options.map((_, i) => Math.exp(-(((i / (k - 1)) - centre) ** 2) / 0.3));
+      const counts = new Array(k).fill(0);
+      const answering = present - (rng() < 0.3 ? 1 : 0);
+      for (let p = 0; p < answering; p++) counts[weightedIndex(rng, weights)]++;
+      answers[q.id] = counts;
+    } else if (q.type === 'counts') {
+      answers[q.id] = tallyLabels(q).map((_, i) =>
+        Math.round(present * clamp01(l + [0.1, 0.25, -0.1][i % 3] + (rng() - 0.5) * 0.15)));
+    } else if (q.type === 'text') {
+      answers[q.id] = '';
+    }
+  }
+  return { present, answers };
+}
 
 /** Session start times, minutes after 00:00 UTC (≈ 09:50–14:15 UK summer time). */
 const START_SLOTS = [530, 580, 645, 695, 795];
@@ -227,6 +277,7 @@ export function buildDemoProgramme(nowSecs) {
     const rng = rngFor(plan.id);
     const cohorts = [];
     const runs = [];
+    const surveys = [];
 
     for (const c of plan.cohorts) {
       // ── Roster: unique display names within the cohort ──
@@ -301,6 +352,32 @@ export function buildDemoProgramme(nowSecs) {
         });
       }
 
+      // ── Surveys: a baseline for every group that has started (done at the
+      // start of its first session); a final for every group that has finished
+      // all six, just after the last one. A group that hasn't started has none —
+      // its sessions are still locked.
+      for (const g of c.groups) {
+        const gRuns = cohortRuns.filter(r => r.group_id === g.id);
+        if (!gRuns.length) continue;
+        const srng = rngFor(`${plan.id}/${c.id}/${g.id}/survey`);
+        const size = students.filter(s => s.group_id === g.id).length;
+        const level = 0.2 + srng() * 0.3;
+        const lift = 0.18 + srng() * 0.22;
+        const offsets = Object.fromEntries(SURVEY.questions.map(q => [q.id, (srng() - 0.5) * 0.3]));
+        const first = Math.min(...gRuns.map(r => r.started_at));
+        const base = { cohort_id: c.id, group_id: g.id, survey_version: SURVEY.version,
+                       facilitator: plan.contact_name, foundation: plan.foundation, school: c.school || plan.name };
+        surveys.push({ id: surveyId(c.id, g.id, 'baseline'), ...base, phase: 'baseline',
+          ...surveyResponse(srng, 'baseline', level, offsets, size),
+          created_at: first - intBetween(srng, 1, 2) * MIN });
+        const finished = new Set(gRuns.filter(r => r.status === 'closed' && r.pledge_count > 0).map(r => r.session));
+        if (finished.size === SESSIONS.length) {
+          surveys.push({ id: surveyId(c.id, g.id, 'final'), ...base, phase: 'final',
+            ...surveyResponse(srng, 'final', level + lift, offsets, size),
+            created_at: Math.max(...gRuns.map(r => r.ended_at)) + intBetween(srng, 1, 4) * MIN });
+        }
+      }
+
       // Cohort (and its student slots) created a couple of days before its
       // first delivery; a cohort with no runs yet was set up a few days ago.
       const firstRun = cohortRuns.length ? Math.min(...cohortRuns.map(r => r.started_at)) : null;
@@ -311,6 +388,8 @@ export function buildDemoProgramme(nowSecs) {
       cohorts.push({
         cohort_id: c.id,
         label: c.label,
+        foundation: plan.foundation,
+        school: c.school || plan.name,
         created_at,
         groups: c.groups.map(g => ({ id: g.id, label: g.label })),
         students
@@ -336,7 +415,7 @@ export function buildDemoProgramme(nowSecs) {
       contact_name: plan.contact_name, contact_email: plan.contact_email,
       login: plan.login,
       created_at, updated_at,
-      cohorts, runs, session_stats
+      cohorts, runs, surveys, session_stats
     };
   });
 

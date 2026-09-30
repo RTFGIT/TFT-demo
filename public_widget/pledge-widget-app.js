@@ -401,6 +401,15 @@ function notifyParent(type, extra = {}) {
   if (window.parent !== window) window.parent.postMessage({ type, ...extra }, '*');
 }
 
+// The portal says when the screen is short (the frame itself always fits the
+// content) and what text size it uses, so the widget matches it on big monitors.
+window.addEventListener('message', (e) => {
+  if (e.data?.type !== 'TFT_LAYOUT') return;
+  const root = document.documentElement;
+  root.classList.toggle('short', !!e.data.short);
+  if (e.data.rootPx >= 12 && e.data.rootPx <= 32) root.style.fontSize = e.data.rootPx + 'px';
+});
+
 // Keep the embedding iframe sized to content.
 function notifyHeight() {
   const h = document.querySelector('.widget').getBoundingClientRect().height + 8;

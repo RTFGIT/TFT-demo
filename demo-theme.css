@@ -22,8 +22,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap { max-width: 940px; margin: 0 auto; }
-.wrap.narrow { max-width: 640px; }
+.wrap { max-width: 58.75rem; margin: 0 auto; }
+.wrap.narrow { max-width: 40rem; }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
 header.page { margin-bottom: 1.5rem; }
@@ -146,8 +146,46 @@ h2.section { font-family: var(--font-display); font-weight: 400; font-size: 1.45
 .btn.big { font-size: 1.4rem; font-weight: 400; letter-spacing: .04em; padding: .78rem 1.4rem; }
 
 @media (max-width: 560px) {
-  body { padding: 1.1rem .8rem 3rem; }
-  header.page h1 { font-size: 1.5rem; }
+  body { padding: 1.1rem 1rem 3rem; }
+  header.page h1 { font-size: 1.9rem; }
   /* Wide tables scroll inside themselves rather than widening the whole page. */
   table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ═══ Screen sizes ════════════════════════════════════════════════════════════
+   One layout, tuned for the screens the tool is used on:
+     large / high-resolution monitors · 1080p monitors · projectors (768px tall
+     or less) · tablets · phones (delivering outside).                        */
+
+/* Monitors: sizes are in rem, and the base size grows gently with the screen —
+   16px up to ~1440px wide, ~17.5px at 1080p, ~19px on a 2560px-wide monitor —
+   so a big screen shows a bigger page, not a small one in the middle. It builds
+   on the browser's own text-size setting (100%), never below it. */
+html { font-size: clamp(100%, calc(0.3vw + 11.7px), 125%); }
+
+/* Touch screens (tablets, phones): anything you tap is at least ~44px. */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn.ghost { min-height: 40px; }
+  input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], select { min-height: 44px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  .crumb a { display: inline-block; padding: .55rem 0; }
+  summary { padding: .5rem 0; }
+}
+
+/* Phones: small labels are nudged up so they read outdoors. */
+@media (max-width: 600px) {
+  .pill, header.page .eyebrow, .stat .l, th { font-size: .76rem; }
+  header.page p.sub { font-size: 1rem; }
+}
+
+/* Projectors and other short screens (768px tall or less): tighter headings
+   and spacing, so what matters fits without scrolling. */
+@media (max-height: 800px) and (min-width: 700px) {
+  body { padding-bottom: 2rem; }
+  header.page { margin-bottom: .8rem; }
+  header.page h1 { font-size: 2.1rem; }
+  header.page p.sub { margin-top: .2rem; }
+  .crumb { margin-bottom: .5rem; }
+  h2.section { margin-top: 1.1rem; }
 }

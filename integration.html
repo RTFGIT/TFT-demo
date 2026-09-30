@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="auth-gate.js"></script>
+<script src="embed-frame.js"></script>
 <title>Try for Tomorrow — How the widget embeds</title>
 <link rel="stylesheet" href="demo-theme.css">
 <!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
@@ -63,7 +65,7 @@
 <div class="wrap">
 
   <header class="page">
-    <div class="eyebrow"><a href="index.html" style="color:var(--accent);text-decoration:none">← Demo home</a></div>
+    <div class="eyebrow" data-embed-hide><a href="index.html" style="color:var(--accent);text-decoration:none">← Demo home</a></div>
     <h1>How the widget embeds on WordPress</h1>
     <p class="sub">What runs on WordPress, what is embedded, and the embed code.</p>
   </header>
@@ -106,6 +108,15 @@
   <p class="muted" style="font-size:.82rem;margin-top:.7rem">
     Only the widget is hosted (on GitHub Pages). The <code>facilitator/</code> folder stands in for WordPress in this demo.
   </p>
+
+  <h2 class="section">Putting a tool on WordPress or Wix</h2>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.5rem">WordPress: paste into a Custom HTML block. The tool resizes to fit and keeps its current screen in the page address.</p>
+  <pre class="code">&lt;<span class="c">div</span> <span class="g">data-tft-tool</span>=<span class="g">"facilitator"</span>&gt;&lt;/<span class="c">div</span>&gt;
+&lt;<span class="c">script</span> <span class="g">src</span>=<span class="g">"https://rtfgit.github.io/TFT-demo/tft-embed.js"</span> <span class="g">async</span>&gt;&lt;/<span class="c">script</span>&gt;
+<span class="m">&lt;!-- tools: facilitator · admin · widget · home · guide     options: data-tft-mode="live|sandbox" --&gt;</span></pre>
+  <p class="muted" style="font-size:.83rem;margin:.9rem 0 .5rem">Wix (HTML embed) or anywhere scripts aren’t allowed: a plain iframe with a fixed height.</p>
+  <pre class="code">&lt;<span class="c">iframe</span> <span class="g">src</span>=<span class="g">"https://rtfgit.github.io/TFT-demo/facilitator/index.html?embed=1"</span>
+  <span class="g">allow</span>=<span class="g">"fullscreen; autoplay; clipboard-write"</span> <span class="g">style</span>=<span class="g">"width:100%;height:1400px;border:0"</span>&gt;&lt;/<span class="c">iframe</span>&gt;</pre>
 
   <h2 class="section">What a WordPress page with the widget looks like</h2>
   <div class="wp-mock">

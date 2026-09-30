@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../auth-gate.js"></script>
+<script src="../embed-frame.js"></script>
 <title>Try for Tomorrow — Admin Console</title>
 <link rel="stylesheet" href="../demo-theme.css">
 <!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
@@ -21,10 +23,21 @@
 
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
   @media (max-width:640px){ .admin-bar { gap:.6rem; font-size:.78rem; } #ab-user { display:none; } }
+  /* Phones: the bar wraps, with the page links in their own scrollable row. */
+  @media (max-width:640px){
+    body { padding-top:5.9rem; }
+    .admin-bar > a[data-embed-hide] { display:none; }
+    .admin-bar { height:auto; min-height:46px; flex-wrap:wrap; row-gap:0; padding:.3rem .9rem 0; }
+    .admin-bar > * { white-space:nowrap; }
+    .ab-nav { order:10; flex-basis:100%; overflow-x:auto; padding-bottom:.35rem; scrollbar-width:none; }
+    .ab-nav a { padding:.5rem .65rem; }
+    .admin-bar > a { padding:.55rem .2rem; }
+  }
+  @media (pointer:coarse){ .chips button { min-height:40px; } .ab-nav a { padding:.5rem .65rem; } }
   header.page h1 { color:#e2e8f0; }
   header.page p.sub { color:#94a3b8; }
   h2.section { color:#94a3b8; }
-  .login-shell { max-width:400px; margin:5vh auto; }
+  .login-shell { max-width:25rem; margin:5vh auto; }
   .totals-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:.55rem; }
   .stotal { background:#1e293b; border:1px solid #334155; border-radius:11px;
             padding:.7rem .5rem; text-align:center; }
@@ -54,6 +67,50 @@
   .doc-admin details { margin-top:.6rem; font-size:.84rem; }
   .doc-admin summary { cursor:pointer; color:var(--muted); }
   .doc-admin details li { margin:.25rem 0 0 1rem; }
+  /* Pledges by option */
+  .chips { display:flex; flex-wrap:wrap; gap:.3rem; }
+  .chips button { border:1.5px solid var(--line); background:var(--surface); color:var(--ink); font:inherit; font-size:.8rem;
+                  font-weight:700; padding:.3rem .7rem; border-radius:99px; cursor:pointer; }
+  .chips button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .os-head { font-weight:800; margin:.8rem 0 .5rem; }
+  .opt-stats { display:flex; flex-direction:column; gap:.55rem; }
+  .os-row { display:grid; grid-template-columns:1fr 48px 48px; gap:.2rem .7rem; align-items:center; font-size:.88rem; }
+  .os-row .bar-track { grid-column:1 / -1; height:7px; }
+  .os-n, .os-p { text-align:right; font-weight:800; }
+  .os-p { color:var(--muted); }
+  .os-total { font-size:.78rem; color:var(--muted); text-align:right; }
+  /* Evaluation */
+  .ev-filters { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; }
+  .ev-filters select { width:auto; min-width:170px; padding:.45rem .6rem; font-size:.88rem; }
+  .ev-filters select:disabled { opacity:.5; }
+  .ev-filters label.chk { display:inline-flex; align-items:center; gap:.4rem; color:#cbd5e1; font-size:.86rem; font-weight:600; }
+  .ev-filters label.chk input { width:20px; height:20px; }
+  .ev-filters .grow { flex:1; }
+  .ev-tiles { display:grid; grid-template-columns:repeat(5,1fr); gap:.55rem; margin-bottom:1rem; }
+  .ev-tiles .stotal .s { margin-top:.2rem; }
+  @media (max-width:760px){ .ev-tiles { grid-template-columns:repeat(2,1fr); } }
+  .qres { margin-bottom:.7rem; }
+  .qres .qn { font-size:.74rem; margin:.1rem 0 .6rem; }
+  .qres details { margin-top:.5rem; font-size:.84rem; }
+  .qres summary { cursor:pointer; color:var(--muted); margin-bottom:.4rem; }
+  .cmp { display:grid; grid-template-columns:minmax(120px, 220px) 1fr 90px; gap:.8rem; align-items:center; padding:.3rem 0; }
+  .cmp-head { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; font-weight:800; color:var(--muted);
+              padding:0 0 .1rem; border-bottom:1px solid var(--line); }
+  .cmp-d { text-align:right; font-size:.85rem; }
+  .chg { font-weight:800; white-space:nowrap; }
+  /* Neutral on purpose: no answer is better than another. */
+  .cmp-l { font-size:.84rem; }
+  .cmp-bars { display:flex; flex-direction:column; gap:.2rem; }
+  .cmp-row { display:grid; grid-template-columns:64px 1fr 48px; gap:.5rem; align-items:center; font-size:.74rem; }
+  .cmp-row span { color:var(--muted); font-weight:700; }
+  .cmp-row b { font-size:.8rem; }
+  .cmp-row .track { height:10px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+  .cmp-row .track i { display:block; height:100%; border-radius:99px; }
+  .cmp-row.b .track i { background:#94a3b8; }
+  .cmp-row.f .track i { background:var(--accent); }
+  @media (max-width:640px){ .cmp { grid-template-columns:1fr auto; gap:.3rem; } .cmp-l { grid-column:1 / -1; } .cmp-head div:nth-child(2) { display:none; } .cmp-row { grid-template-columns:56px 1fr 44px; } }
+  .tally { display:inline-block; margin-right:.8rem; white-space:nowrap; }
+  .ev-single td:not(:first-child) { min-width:190px; }
 </style>
 </head>
 <body>
@@ -63,12 +120,13 @@
   <span class="mode-pill" id="ab-mode"></span>
   <nav class="ab-nav hidden" id="ab-nav">
     <a href="#" data-nav="dash">Overview</a>
+    <a href="#" data-nav="eval">Evaluation</a>
     <a href="#" data-nav="docs">Session documents</a>
   </nav>
   <span class="spacer"></span>
   <span id="ab-user"></span>
   <a href="#" id="ab-signout" class="hidden">Sign out</a>
-  <a href="../index.html">← Demo home</a>
+  <a href="../index.html" data-embed-hide>← Demo home</a>
 </div>
 
 <div id="app"></div>
@@ -86,6 +144,34 @@
       <div id="lg-err" class="hidden" style="color:#dc2626;font-size:.83rem;margin-top:.6rem"></div>
       <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@tft-demo.example</code> / <code>tftadmin</code></p>
     </div>
+  </div>
+</template>
+
+<template id="v-eval">
+  <div class="wrap" style="max-width:67.5rem">
+    <header class="page">
+      <div class="eyebrow">Programme</div>
+      <h1>Evaluation</h1>
+      <p class="sub">Each group answers the survey by a show of hands: a baseline before its first session and a final after its sixth. <span id="ev-version"></span></p>
+    </header>
+    <div class="ev-filters">
+      <select id="ev-foundation" aria-label="Foundation"></select>
+      <select id="ev-provider" aria-label="Organisation"></select>
+      <select id="ev-cohort" aria-label="Cohort"></select>
+      <select id="ev-group" aria-label="Group"></select>
+      <button class="btn ghost" id="ev-reset">Clear</button>
+      <span class="grow"></span>
+      <label class="chk" title="Compare only groups that have done both surveys"><input type="checkbox" id="ev-matched"> Groups with both</label>
+      <button class="btn secondary" id="ev-export">Export CSV</button>
+    </div>
+    <div class="ev-tiles" id="ev-tiles"></div>
+    <div id="ev-body"><div class="empty">Loading…</div></div>
+    <h2 class="section">Groups</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Foundation</th><th>Organisation</th><th>School</th><th>Cohort · group</th><th>Baseline · taking part</th><th>Final · taking part</th></tr></thead>
+      <tbody id="ev-groups"></tbody>
+    </table></div>
+    <p class="muted" style="font-size:.78rem;margin-top:.6rem">Select a group to see its answers. Responses are per group; nothing identifies an individual.</p>
   </div>
 </template>
 
@@ -113,6 +199,12 @@
     </header>
     <h2 class="section">All-provider totals by session</h2>
     <div class="totals-grid" id="da-totals"></div>
+    <h2 class="section">Pledges by option</h2>
+    <div class="card">
+      <div class="chips" id="da-opt-sessions" role="group" aria-label="Session"></div>
+      <div class="os-head" id="da-opt-title"></div>
+      <div id="da-options"><div class="muted" style="font-size:.85rem">Loading…</div></div>
+    </div>
     <h2 class="section">Providers</h2>
     <div class="table-scroll"><table>
       <thead><tr>
@@ -149,6 +241,10 @@
       <h1 id="rv-title"></h1>
       <p class="sub" id="rv-sub"></p>
     </header>
+    <div class="card" style="margin-bottom:1rem">
+      <strong style="font-size:.95rem">Pledges by option</strong>
+      <div id="rv-options" style="margin-top:.6rem"></div>
+    </div>
     <div class="emulation-note">
       Pledges carry a pseudonymous ID only. Names stay in WordPress.
     </div>

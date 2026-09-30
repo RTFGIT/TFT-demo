@@ -60,7 +60,8 @@ export const WP_ROUTES = {
   detail:   { hash: '#/cohort/:c/session/:n',         permalink: '/facilitator/cohort/:c/session/:n/'            },
   video:    { hash: '#/cohort/:c/session/:n/video',   permalink: '/facilitator/cohort/:c/session/:n/video/'      },
   pledge:   { hash: '#/cohort/:c/session/:n/pledge',  permalink: '/facilitator/cohort/:c/session/:n/pledge/'     },
-  complete: { hash: '#/cohort/:c/session/:n/complete',permalink: '/facilitator/cohort/:c/session/:n/complete/'   }
+  complete: { hash: '#/cohort/:c/session/:n/complete',permalink: '/facilitator/cohort/:c/session/:n/complete/'   },
+  survey:   { hash: '#/cohort/:c/survey/:phase',      permalink: '/facilitator/cohort/:c/survey/:phase/'         }
 };
 
 // ─── Seed ────────────────────────────────────────────────────────────────────
@@ -88,6 +89,8 @@ const WP_USERS = [
         ...p.cohorts.map(c => ({
           cohort_id: c.cohort_id,
           label: c.label,
+          foundation: c.foundation,
+          school: c.school,
           groups: c.groups.map(g => ({ id: g.id, label: g.label })),
           students: c.students.map(st => ({ student_ref: st.student_ref, display_name: st.display_name, group_id: st.group_id }))
         })),
@@ -155,6 +158,8 @@ export function wpCohorts(providerId) {
   return providerCohorts(load(), providerId).map(c => ({
     cohort_id: c.cohort_id,
     label: c.label,
+    foundation: c.foundation || '',
+    school: c.school || '',
     groups: (c.groups || []).length,
     students: (c.students || []).length
   }));
@@ -164,13 +169,19 @@ export function wpGetCohort(providerId, cohortId) {
   return providerCohorts(load(), providerId).find(c => c.cohort_id === cohortId) || null;
 }
 
-/** Create a cohort with a generated id and one default group holding everyone. */
+/**
+ * Create a cohort with a generated id and one default group holding everyone.
+ * Its Foundation starts as the one on this provider's latest cohort (usually the
+ * same); its school is filled in on the cohort page. Both feed the group survey.
+ */
 export function wpCreateCohort(providerId, label) {
   const s = load();
   const cohorts = providerCohorts(s, providerId);
   const cohort = {
     cohort_id: slugId(label || 'cohort'),
     label: (label || '').trim() || `Cohort ${cohorts.length + 1}`,
+    foundation: [...cohorts].reverse().find(c => c.foundation)?.foundation || '',
+    school: '',
     groups: [{ id: 'g1', label: 'Group 1' }],
     students: []
   };
@@ -184,6 +195,17 @@ export function wpRenameCohort(providerId, cohortId, label) {
   const c = providerCohorts(s, providerId).find(x => x.cohort_id === cohortId);
   if (!c) return false;
   c.label = String(label).trim() || c.label;
+  save(s);
+  return true;
+}
+
+/** Set a cohort's Foundation and/or school (organisation names, not people). */
+export function wpUpdateCohortDetails(providerId, cohortId, { foundation, school } = {}) {
+  const s = load();
+  const c = providerCohorts(s, providerId).find(x => x.cohort_id === cohortId);
+  if (!c) return false;
+  if (foundation !== undefined) c.foundation = String(foundation).trim().slice(0, 120);
+  if (school !== undefined) c.school = String(school).trim().slice(0, 120);
   save(s);
   return true;
 }
@@ -225,13 +247,22 @@ export function wpRenameGroup(providerId, cohortId, groupId, label) {
 }
 
 /** Removing a group reassigns its students to the first remaining group. */
-export function wpRemoveGroup(providerId, cohortId, groupId) {
+/**
+ * Delete a group. Its students are deleted from the roster too, unless
+ * `moveTo` names another group of the cohort to move them into. A cohort keeps
+ * at least one group (delete the cohort instead). Nothing already recorded on
+ * the Firebase side (runs, pledges, surveys) is touched.
+ */
+export function wpRemoveGroup(providerId, cohortId, groupId, { moveTo } = {}) {
   const s = load();
   const c = providerCohorts(s, providerId).find(x => x.cohort_id === cohortId);
   if (!c || (c.groups || []).length <= 1) return false;
   c.groups = c.groups.filter(g => g.id !== groupId);
-  const fallback = c.groups[0].id;
-  c.students.forEach(st => { if (st.group_id === groupId) st.group_id = fallback; });
+  if (moveTo && c.groups.some(g => g.id === moveTo)) {
+    c.students.forEach(st => { if (st.group_id === groupId) st.group_id = moveTo; });
+  } else {
+    c.students = c.students.filter(st => st.group_id !== groupId);
+  }
   save(s);
   return true;
 }

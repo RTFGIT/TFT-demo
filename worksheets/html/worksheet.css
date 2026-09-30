@@ -9,9 +9,11 @@
 .worksheet {
   font-family: var(--font-body, system-ui, sans-serif);
   color: var(--ink, #111);
-  font-size: clamp(1.15rem, 1.9vw, 1.85rem);
+  /* Projector-sized: grows with the screen's width but stays within its height,
+     so a 1024×768 projector gets ~25px text and a 1080p screen ~38px. */
+  font-size: clamp(1.15rem, min(2.4vw, 3.6vh), 2.2rem);
   line-height: 1.35;
-  max-width: 1300px; margin: 0 auto;
+  max-width: 82rem; margin: 0 auto;
   padding: clamp(1.2rem, 3vw, 3rem) clamp(1rem, 4vw, 4rem) 4rem;
 }
 body:has(> .worksheet) { margin: 0; background: var(--bg, #fff); }

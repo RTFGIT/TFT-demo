@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="../auth-gate.js"></script>
+<script src="../embed-frame.js"></script>
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Try for Tomorrow — Pledge Widget</title>
@@ -26,7 +28,7 @@
   .display { font-family:var(--font-display); font-weight:var(--display-weight);
              text-transform:var(--display-case); letter-spacing:var(--display-track); }
 
-  .widget { max-width:720px; margin:0 auto; background:var(--surface);
+  .widget { max-width:45rem; margin:0 auto; background:var(--surface);
             border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
             box-shadow:var(--shadow); }
 
@@ -192,6 +194,30 @@
     .body { padding:1.1rem 1rem 1.2rem; }
     .turn .ref { display:none; }
   }
+  /* ═══ Screen sizes ═══════════════════════════════════════════════════════
+     Large monitors: the widget scales with the screen, like the portal.
+     Wide enough (a laptop, projector or tablet): the options sit in two columns.
+     html.short (sent by the portal on a short screen, e.g. a 768px projector):
+     a shorter stage and tighter spacing, so everything fits on one screen.
+     Touch: bigger targets. */
+  html { font-size:clamp(100%, calc(0.3vw + 11.7px), 125%); }
+  @media (min-width:600px) {
+    .options { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+    .options > * { margin:0 !important; }
+    .options .opt.own { grid-column:1 / -1; }
+  }
+  html.short .stage { height:130px; }
+  html.short .score-n { font-size:2.2rem; height:2.35rem; }
+  html.short .body { padding:.85rem 1.1rem 1rem; }
+  html.short .turn { margin-bottom:.5rem; }
+  html.short .turn .nm { font-size:1.55rem; }
+  html.short .question { font-size:1.4rem; }
+  html.short .prompt { display:none; }
+  html.short .question { margin-bottom:.55rem; }
+  html.short .turn .ref { display:none; }
+  html.short .opt { padding-top:.45rem; padding-bottom:.45rem; }
+  html.short .hint { display:none; }
+  @media (pointer:coarse) { .link-btn { min-height:44px; } .opt { min-height:52px; } }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration:.01s !important; transition-duration:.01s !important; }
   }
