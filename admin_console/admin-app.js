@@ -7,6 +7,12 @@
  *   3. What pledges were captured in each run of each session?
  *   4. What are the All-Providers totals per session?
  *   5. How did groups answer the evaluation survey, before and after? (Evaluation)
+ * …and lets admins set the session videos every facilitator plays (Session videos).
+ *
+ * ROLES (firestore.rules enforces them; this console only follows suit)
+ *   admin    everything, including Session videos
+ *   manager  read-only: sees everything, every change control is hidden
+ *   guest    the shared demo: the demo admin persona, on the demo organisations
  *
  * WHAT THIS CONSOLE DELIBERATELY CANNOT DO
  * It cannot show you a student's name. Pledges carry only `student_ref`, and the
@@ -17,8 +23,9 @@
 
 import {
   initializeApp, getFirestore, getAuth, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, doc, getDoc, getDocs, collection, updateDoc, deleteDoc, query, orderBy, where,
-  MODE, currentUser } from '../data-layer.js';
+  onAuthStateChanged, doc, getDoc, getDocs, setDoc, collection, updateDoc, deleteDoc, query, orderBy, where,
+  serverTimestamp, MODE, currentUser } from '../data-layer.js';
+import { videoEmbed, videoKind, VIDEO_KIND_LABEL } from '../video-embed.js';
 import * as sessionConfig from '../public_widget/session-config.js';
 import { listSessionDocs, versionUrl, projectorPagePath, projectorPageStatus } from '../doc-store.js';
 import { SURVEY, tallyLabels } from '../public_widget/survey-config.js';
@@ -49,17 +56,24 @@ function render(id) {
 /**
  * Sandbox: the admin login signs in to the local stand-in database.
  *
- * Live: the admin login is a PERSONA (like the facilitator logins). The real
- * database access comes from the account signed in at the black bar
- * (auth-gate.js): a demo guest sees and moderates the demo organisations only;
- * a genuine admin (claim admin:true) sees everything. The rules enforce this.
+ * Live: the account signed in at the black bar (auth-gate.js) decides. Rethink
+ * Food staff (admin or manager) go straight in as themselves. A demo guest
+ * signs in with the demo admin PERSONA and sees and moderates the demo
+ * organisations only. The rules enforce all of this.
  */
 const PERSONA = { email: 'admin@tft-demo.example', password: 'tftadmin' };
 const LS_PERSONA = 'tft26_admin_persona_v1';
-let realAdmin = false;          // Live: is the real account a genuine admin?
+/** 'admin' | 'manager' | 'guest' — set on sign-in. */
+let role = 'guest';
+const roleFromClaims = (c) => c.admin ? 'admin' : c.manager ? 'manager' : 'guest';
+/** Managers are read-only: no change controls are shown to them. */
+const canChange = () => role !== 'manager';
+const ROLE_LABEL = { admin: 'Admin', manager: 'Manager · read-only', guest: 'Demo admin' };
 
 function viewLogin(message) {
   render('v-login');
+  // Sandbox has a read-only manager login too (in Live, roles come from the real account).
+  if (MODE !== 'live') $('lg-mgr').classList.remove('hidden');
   if (message) { $('lg-err').textContent = message; $('lg-err').classList.remove('hidden'); }
   const go = async () => {
     const email = $('lg-email').value.trim(), password = $('lg-pass').value;
@@ -78,21 +92,29 @@ function viewLogin(message) {
   $('lg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
 }
 
-function enter(label) {
+function enter(label, staff = false) {
   $('ab-user').textContent = label;
-  $('ab-signout').classList.remove('hidden');
+  $('ab-role').textContent = ROLE_LABEL[role];
+  $('ab-role').className = 'mode-pill role-pill ' + role;
+  $('ab-role').classList.remove('hidden');
+  // Live staff sign out at the black bar (their real account); personas here.
+  $('ab-signout').classList.toggle('hidden', MODE === 'live' && staff);
   $('ab-nav').classList.remove('hidden');
+  document.querySelector('[data-nav="videos"]').classList.toggle('hidden', role !== 'admin');
+  document.body.classList.toggle('read-only', !canChange());
   viewDash();
 }
 function leave(message) {
   $('ab-user').textContent = ''; $('ab-signout').classList.add('hidden'); $('ab-nav').classList.add('hidden');
+  $('ab-role').classList.add('hidden');
   viewLogin(message);
 }
 
 if (MODE === 'live') {
   (async () => {
     const real = currentUser();
-    realAdmin = !!(real && (await real.getIdTokenResult()).claims.admin);
+    role = real ? roleFromClaims((await real.getIdTokenResult()).claims) : 'guest';
+    if (role !== 'guest') return enter(real.displayName || real.email, true);
     let persona = null;
     try { persona = localStorage.getItem(LS_PERSONA); } catch {}
     persona ? enter(persona) : leave();
@@ -102,7 +124,8 @@ if (MODE === 'live') {
     if (!user) return leave();
     // Client-side claim check; the rules enforce it server-side too.
     const token = await user.getIdTokenResult();
-    if (!token.claims.admin) { await signOut(auth); return leave('That account does not have admin access.'); }
+    role = roleFromClaims(token.claims);
+    if (role === 'guest') { await signOut(auth); return leave('That account does not have admin access.'); }
     enter(user.email);
   });
 }
@@ -114,7 +137,8 @@ $('ab-signout').addEventListener('click', e => {
 });
 document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
   e.preventDefault();
-  a.dataset.nav === 'docs' ? viewDocs() : a.dataset.nav === 'eval' ? viewEval() : viewDash();
+  const v = a.dataset.nav;
+  v === 'docs' ? viewDocs() : v === 'eval' ? viewEval() : v === 'videos' ? viewSessionVideos() : viewDash();
 }));
 function navOn(which) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === which)); }
 
@@ -334,7 +358,7 @@ async function viewRun(providerId, runId, session) {
         </span>
         <span class="row" style="gap:.4rem">
           <span class="pill ${p.status === 'approved' ? 'ok' : 'pending'}">${esc(p.status || 'pending')}</span>
-          ${p.status !== 'approved'
+          ${p.status !== 'approved' && canChange()
             ? `<button class="btn ghost" data-approve="${esc(p.id)}">Approve</button>` : ''}
         </span>
       </div>
@@ -417,7 +441,7 @@ const evalState = { foundation: '', provider: '', cohort: '', group: '', matched
 
 /** The providers this admin may see (a demo guest: the demo organisations only). */
 async function listProviders() {
-  const snap = await getDocs(MODE === 'live' && !realAdmin
+  const snap = await getDocs(MODE === 'live' && role === 'guest'
     ? query(collection(db, 'providers'), where('demo', '==', true))
     : collection(db, 'providers'));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -563,7 +587,7 @@ async function viewEval() {
         if (!b || !f) return '<span class="muted">–</span>';
         return tallyLabels(q).map((l, i) => `<span class="tally">${esc(l)} ${changeHtml(b[i], f[i])}</span>`).join('');
       };
-      const del = (r, ph) => r ? `<button class="btn ghost" data-del="${esc(r.provider_id)}|${esc(r.id)}" title="Remove this response so the group can answer again">Delete ${ph}</button>` : '';
+      const del = (r, ph) => r && canChange() ? `<button class="btn ghost" data-del="${esc(r.provider_id)}|${esc(r.id)}" title="Remove this response so the group can answer again">Delete ${ph}</button>` : '';
       const who = (r) => r ? [r.facilitator, when(r.created_at)].filter(Boolean).map(esc).join(' · ') : '';
       $('ev-body').innerHTML = `<div class="card">
         <div class="row between" style="flex-wrap:wrap;gap:.5rem">
@@ -636,4 +660,99 @@ function exportCsv(rows) {
   a.download = `tft-survey-results-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ─── Session videos — admins set the links every facilitator plays ───────────
+/**
+ * Each session has two videos: the session film (part 1, "Watch & respond")
+ * and the physical task demo (part 3). Their links are saved on the public
+ * sessions/{n} documents, which the facilitator portal reads when it opens —
+ * so a change here reaches every facilitator without touching the code.
+ * Until a session has a saved link, the one in session-config.js is used.
+ * Admins only: firestore.rules lets nobody else write sessions/{n}, and only
+ * accepts https links.
+ */
+const VIDEO_FIELDS = [
+  ['video_url', 'Session film', (s) => s.film?.title || ''],
+  ['physical_video', 'Physical task video', (s) => s.physical?.title || '']
+];
+
+async function viewSessionVideos() {
+  render('v-videos');
+  navOn('videos');
+  if (role !== 'admin') { $('vs-list').innerHTML = '<div class="empty">Only admins can change the session videos.</div>'; return; }
+  let stored = {};
+  try {
+    const snap = await getDocs(collection(db, 'sessions'));
+    stored = Object.fromEntries(snap.docs.map(d => [Number(d.id), d.data()]));
+  } catch (e) { console.error('[TFT26] sessions unavailable', e); }
+  if (!$('vs-list')) return;
+  const current = (s, f) => typeof stored[s.n]?.[f] === 'string' ? stored[s.n][f]
+                           : f === 'video_url' ? (s.video_url || '') : (SESSION_MEDIA[s.n]?.physical_video || '');
+  const changed = (s) => stored[s.n]?.media_updated_at
+    ? `Last changed ${when(stored[s.n].media_updated_at)}${stored[s.n].media_updated_by ? ' by ' + esc(stored[s.n].media_updated_by) : ''}`
+    : 'Not changed here yet';
+
+  $('vs-list').innerHTML = SESSIONS.map(s => `
+    <div class="card vid-card" data-n="${s.n}">
+      <div class="vid-head"><strong>Session ${s.n} · ${esc(s.title)}</strong><span class="muted vid-when">${changed(s)}</span></div>
+      ${VIDEO_FIELDS.map(([f, label, sub]) => `
+        <div class="vid-field" data-f="${f}">
+          <label class="vid-l" for="vs-${s.n}-${f}">${label}${sub(s) ? ` <span class="muted">· ${esc(sub(s))}</span>` : ''}</label>
+          <div class="vid-row">
+            <input type="url" id="vs-${s.n}-${f}" value="${esc(current(s, f))}" placeholder="https://www.youtube.com/watch?v=…" spellcheck="false" autocomplete="off">
+            <button class="btn secondary" data-preview aria-expanded="false">Preview</button>
+          </div>
+          <div class="vid-kind"></div>
+          <div class="vid-prev pvideo hidden"></div>
+        </div>`).join('')}
+      <div class="vid-acts"><span class="vid-msg" role="status"></span><button class="btn" data-save disabled>Save session ${s.n}</button></div>
+    </div>`).join('');
+
+  appEl.querySelectorAll('.vid-card').forEach(card => {
+    const n = Number(card.dataset.n), s = SESSIONS.find(x => x.n === n);
+    const saved = Object.fromEntries(VIDEO_FIELDS.map(([f]) => [f, current(s, f)]));
+    const value = (f) => card.querySelector(`[data-f="${f}"] input`).value.trim();
+    const msg = card.querySelector('.vid-msg'), save = card.querySelector('[data-save]');
+    const sync = () => {
+      let ok = true, dirty = false;
+      for (const [f] of VIDEO_FIELDS) {
+        const kind = videoKind(value(f));
+        const k = card.querySelector(`[data-f="${f}"] .vid-kind`);
+        k.textContent = VIDEO_KIND_LABEL[kind] + (kind && kind !== 'invalid' ? ' ✓' : '');
+        k.className = 'vid-kind ' + (kind === 'invalid' ? 'bad' : kind ? 'good' : '');
+        if (kind === 'invalid') ok = false;
+        if (value(f) !== saved[f]) dirty = true;
+      }
+      save.disabled = !ok || !dirty;
+      if (dirty) { msg.textContent = ok ? 'Unsaved changes' : 'Fix the link to save'; msg.className = 'vid-msg ' + (ok ? 'warn' : 'bad'); }
+      else if (!msg.classList.contains('ok')) { msg.textContent = ''; msg.className = 'vid-msg'; }
+    };
+    card.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { msg.classList.remove('ok'); sync(); }));
+    card.querySelectorAll('[data-preview]').forEach(b => b.addEventListener('click', () => {
+      const field = b.closest('.vid-field'), box = field.querySelector('.vid-prev');
+      const open = box.classList.contains('hidden');
+      box.innerHTML = open ? videoEmbed(field.querySelector('input').value.trim(), 'Preview') : '';
+      box.classList.toggle('hidden', !open);
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      b.textContent = open ? 'Close preview' : 'Preview';
+    }));
+    save.addEventListener('click', async () => {
+      save.disabled = true; save.textContent = 'Saving…';
+      const by = currentUser()?.email || $('ab-user').textContent || '';
+      const data = Object.fromEntries(VIDEO_FIELDS.map(([f]) => [f, value(f)]));
+      try {
+        await setDoc(doc(db, 'sessions', String(n)), { ...data, media_updated_at: serverTimestamp(), media_updated_by: by }, { merge: true });
+        Object.assign(saved, data);
+        card.querySelector('.vid-when').textContent = `Last changed ${when({ seconds: Date.now() / 1000 })}${by ? ' by ' + by : ''}`;
+        msg.textContent = 'Saved. Facilitators get it next time they open the portal.'; msg.className = 'vid-msg ok';
+      } catch (e) {
+        console.error('[TFT26] could not save the session videos', e);
+        msg.textContent = 'Couldn’t save — check the links and try again.'; msg.className = 'vid-msg bad';
+      }
+      save.textContent = `Save session ${n}`;
+      sync();
+    });
+    sync();
+  });
 }

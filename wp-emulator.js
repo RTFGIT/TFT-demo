@@ -138,6 +138,19 @@ const SESSION_PAGES = SESSIONS.map(x => ({
   worksheet: SESSION_MEDIA[x.n]?.worksheet || ''
 }));
 export function wpSessionPage(n)  { return SESSION_PAGES.find(p => p.n === Number(n)) || null; }
+/**
+ * Video links set by an admin (admin console → Session videos, saved on the
+ * sessions/{n} documents) replace the ones built into session-config.js. A field
+ * that's present wins even when empty — an admin can remove a video.
+ */
+export function wpApplySessionMedia(docs) {
+  for (const p of SESSION_PAGES) {
+    const d = docs[p.n];
+    if (!d) continue;
+    if (typeof d.video_url === 'string') p.video_url = d.video_url;
+    if (typeof d.physical_video === 'string') p.physical_video = d.physical_video;
+  }
+}
 export function wpSessionPages()  { return SESSION_PAGES; }
 
 // ═══ Cohorts ═════════════════════════════════════════════════════════════════

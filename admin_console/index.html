@@ -67,6 +67,27 @@
   .doc-admin details { margin-top:.6rem; font-size:.84rem; }
   .doc-admin summary { cursor:pointer; color:var(--muted); }
   .doc-admin details li { margin:.25rem 0 0 1rem; }
+  /* Roles */
+  .role-pill.admin { background:#f3f3f0; color:#111; }
+  .role-pill.manager { background:#fef3c7; color:#92400e; }
+  .role-pill.guest { background:#1e293b; color:#cbd5e1; border:1px solid #334155; }
+  /* Session videos */
+  .vid-card { display:flex; flex-direction:column; gap:.8rem; }
+  .vid-head { display:flex; justify-content:space-between; align-items:baseline; gap:.6rem; flex-wrap:wrap; }
+  .vid-head .muted { font-size:.8rem; }
+  .vid-l { display:block; font-size:.85rem; font-weight:700; margin-bottom:.3rem; }
+  .vid-row { display:flex; gap:.5rem; }
+  .vid-row input { flex:1; min-width:0; font-family:ui-monospace, Consolas, monospace; font-size:.85rem; }
+  .vid-kind { font-size:.78rem; margin-top:.25rem; color:var(--muted); }
+  .vid-kind.good { color:var(--ok); font-weight:700; }
+  .vid-kind.bad { color:var(--danger); font-weight:700; }
+  .vid-prev { margin-top:.6rem; max-width:560px; }
+  .vid-prev iframe, .vid-prev video { width:100%; aspect-ratio:16/9; border:0; border-radius:var(--radius-sm); background:#0b1020; display:block; }
+  .vid-prev .none { aspect-ratio:16/9; display:grid; place-items:center; border-radius:var(--radius-sm); background:#0b1020; color:#8a93b2; font-size:.9rem; }
+  .vid-acts { display:flex; justify-content:flex-end; align-items:center; gap:.8rem; border-top:1px solid var(--line); padding-top:.8rem; }
+  .vid-msg { font-size:.84rem; font-weight:700; }
+  .vid-msg.ok { color:var(--ok); } .vid-msg.warn { color:var(--warn); } .vid-msg.bad { color:var(--danger); }
+  @media (max-width:560px){ .vid-row { flex-wrap:wrap; } .vid-row .btn { width:100%; } }
   /* Pledges by option */
   .chips { display:flex; flex-wrap:wrap; gap:.3rem; }
   .chips button { border:1.5px solid var(--line); background:var(--surface); color:var(--ink); font:inherit; font-size:.8rem;
@@ -122,9 +143,11 @@
     <a href="#" data-nav="dash">Overview</a>
     <a href="#" data-nav="eval">Evaluation</a>
     <a href="#" data-nav="docs">Session documents</a>
+    <a href="#" data-nav="videos" class="hidden">Session videos</a>
   </nav>
   <span class="spacer"></span>
   <span id="ab-user"></span>
+  <span class="mode-pill role-pill hidden" id="ab-role"></span>
   <a href="#" id="ab-signout" class="hidden">Sign out</a>
   <a href="../index.html" data-embed-hide>← Demo home</a>
 </div>
@@ -143,6 +166,7 @@
       <button class="btn" id="lg-go" style="width:100%">Sign in</button>
       <div id="lg-err" class="hidden" style="color:#dc2626;font-size:.83rem;margin-top:.6rem"></div>
       <p class="muted" style="font-size:.78rem;margin-top:.9rem">Demo: <code>admin@tft-demo.example</code> / <code>tftadmin</code></p>
+      <p class="muted hidden" id="lg-mgr" style="font-size:.78rem;margin-top:.3rem">Read-only manager: <code>manager@tft-demo.example</code> / <code>tftmanager</code></p>
     </div>
   </div>
 </template>
@@ -172,6 +196,21 @@
       <tbody id="ev-groups"></tbody>
     </table></div>
     <p class="muted" style="font-size:.78rem;margin-top:.6rem">Select a group to see its answers. Responses are per group; nothing identifies an individual.</p>
+  </div>
+</template>
+
+<template id="v-videos">
+  <div class="wrap">
+    <header class="page">
+      <div class="eyebrow">Programme · admins only</div>
+      <h1>Session videos</h1>
+      <p class="sub">The film and the physical task video for each session. Facilitators get the change the next time they open the portal.</p>
+    </header>
+    <div class="emulation-note">
+      Paste a <strong>YouTube</strong> or <strong>Vimeo</strong> link, or an <strong>https</strong> link to a video file (.mp4).
+      Use Preview to check it plays before saving. Leave a box empty to show “Video to be added”.
+    </div>
+    <div class="stack" id="vs-list"><div class="empty">Loading…</div></div>
   </div>
 </template>
 

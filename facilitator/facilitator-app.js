@@ -47,8 +47,9 @@ import {
   wpSignIn, wpSignOut, wpCurrentUser, wpAccounts, wpSessionPage, wpSessionPages,
   wpCohorts, wpHasAnyCohort, wpGetCohort, wpCreateCohort, wpRenameCohort, wpUpdateCohortDetails, wpDeleteCohort,
   wpGroups, wpAddGroup, wpRenameGroup, wpRemoveGroup,
-  wpAddStudent, wpUpdateStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES
+  wpAddStudent, wpUpdateStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES, wpApplySessionMedia
 } from '../wp-emulator.js';
+import { videoEmbed } from '../video-embed.js';
 import {
   initializeApp, getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
   collection, getDocs, serverTimestamp, runTransaction, increment,
@@ -139,23 +140,14 @@ function show(templateId) {
 }
 
 /**
- * A video player for a session's physical task — built only when the facilitator
- * asks for it (nothing loads or plays until then). YouTube and Vimeo links become
- * their privacy-friendly embeds; anything else is treated as a video file.
+ * Video players (video-embed.js) are built only when the facilitator asks for
+ * one, so nothing loads or plays until then. Show / hide a video box; the
+ * player is removed when hidden so it stops.
  */
-function videoEmbed(url) {
-  if (!url) return '<div class="none">Video to be added</div>';
-  const yt = url.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([\w-]{11})/);
-  if (yt) return `<iframe src="https://www.youtube-nocookie.com/embed/${yt[1]}" title="Physical task video" allow="fullscreen; picture-in-picture" allowfullscreen></iframe>`;
-  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  if (vm) return `<iframe src="https://player.vimeo.com/video/${vm[1]}" title="Physical task video" allow="fullscreen; picture-in-picture" allowfullscreen></iframe>`;
-  return `<video src="${esc(url)}" controls preload="metadata"></video>`;
-}
-/** Show / hide a video box; the player is removed when hidden so it stops. */
-function wireVideoToggle(btn, box, url) {
+function wireVideoToggle(btn, box, url, title = 'Physical task video') {
   btn.addEventListener('click', () => {
     const open = box.classList.contains('hidden');
-    box.innerHTML = open ? videoEmbed(url) : '';
+    box.innerHTML = open ? videoEmbed(url, title) : '';
     box.classList.toggle('hidden', !open);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     btn.textContent = open ? 'Hide video' : 'Watch video';
@@ -1010,7 +1002,13 @@ function viewVideo(cid, n) {
   });
   $('vd-question').textContent = page.question;
   $('vd-citizen').textContent  = page.citizen || '';
-  if (page.video_url) $('vd-videonote').textContent = page.video_url;
+  if (page.video_url) {
+    $('vd-videonote').innerHTML = '<button class="btn" id="vd-film-play">Play the film</button>';
+    $('vd-film-play').addEventListener('click', () => {
+      $('vd-film-frame').innerHTML = videoEmbed(page.video_url, page.film?.title || 'Session film');
+      $('vd-film-frame').classList.add('playing');
+    });
+  }
   appEl.querySelectorAll('[data-part]').forEach(a => a.addEventListener('click', e => {
     e.preventDefault();
     $(a.dataset.part)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1886,6 +1884,22 @@ $('wp-signout').addEventListener('click', (e) => {
 const modePill = $('wp-mode');
 modePill.textContent = MODE === 'live' ? 'LIVE' : 'SANDBOX';
 modePill.classList.toggle('live', MODE === 'live');
+
+/**
+ * The session and physical-task video links an admin has set (admin console →
+ * Session videos) live on the public sessions/{n} documents. Read them once at
+ * start-up; if that's slow or fails, the built-in links are used.
+ */
+async function loadSessionMedia() {
+  try {
+    const snap = await Promise.race([
+      getDocs(collection(db, 'sessions')),
+      new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 4000))
+    ]);
+    wpApplySessionMedia(Object.fromEntries(snap.docs.map(d => [Number(d.id), d.data()])));
+  } catch (e) { console.warn('[TFT26] session video links unavailable — using the built-in ones', e); }
+}
+await loadSessionMedia();
 
 window.addEventListener('hashchange', route);
 route();

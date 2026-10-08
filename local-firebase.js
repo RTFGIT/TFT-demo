@@ -197,6 +197,7 @@ export class ReCaptchaEnterpriseProvider { constructor() {} }
 const LS_USERS = 'tft26_localusers_v1';
 const SEED_USERS = [
   { uid: 'admin-local',       email: 'admin@tft-demo.example', password: 'tftadmin', claims: { admin: true } },
+  { uid: 'manager-local',     email: 'manager@tft-demo.example', password: 'tftmanager', claims: { manager: true } },
   { uid: 'facilitator-local', email: 'facilitator@local', password: 'facilitator', claims: { provider: 'demo-college' } },
   // Capture-device account — locked down: can ONLY run the pledge capture page,
   // never the provider dashboard. This is what stays signed in on the shared iPad.
@@ -252,6 +253,7 @@ export function onAuthStateChanged(auth, cb) {
 (function seedIfEmpty() {
   if (loadStore().__seed_v === DEMO_SEED_VERSION) return;
   const store = {};                                   // sandbox data is disposable
+  const old = loadStore();                            // …except video links an admin set
   const now = Math.floor(Date.now() / 1000);
   // demo-data.js speaks epoch seconds; the shim stores Firestore Timestamp shape.
   const ts = (secs) => (secs == null ? null : { seconds: secs, nanoseconds: 0 });
@@ -266,7 +268,8 @@ export function onAuthStateChanged(auth, cb) {
       n: s.n,
       title: s.title,
       theme_note: s.theme_note || '',
-      video_url: s.video_url || '',
+      video_url: old['sessions/' + s.n]?.video_url ?? (s.video_url || ''),
+      ...(typeof old['sessions/' + s.n]?.physical_video === 'string' ? { physical_video: old['sessions/' + s.n].physical_video } : {}),
       question: s.question,
       prompt: s.prompt,
       options: s.options.slice(),

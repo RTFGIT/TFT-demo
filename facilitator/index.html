@@ -364,6 +364,7 @@
   .done-check input { width:18px; height:18px; accent-color:var(--accent); }
   .done-check:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
   .pvideo { margin:0 0 .9rem; }
+  .video-frame.playing { display:block; background:none; border:0; }
   .pvideo iframe, .pvideo video { width:100%; aspect-ratio:16/9; border:0; border-radius:var(--radius); background:#0b1020; display:block; }
   .pvideo .none { aspect-ratio:16/9; display:grid; place-items:center; border-radius:var(--radius);
                   background:#0b1020; color:#8a93b2; font-size:.9rem; }
@@ -836,7 +837,7 @@
 
     <section class="card part" id="part-film">
       <div class="part-head"><span class="part-n">1</span><div><div class="part-l">Watch &amp; respond</div><h2 class="part-t" id="vd-film"></h2></div></div>
-      <div class="video-frame" style="margin:.2rem 0 .9rem">
+      <div class="video-frame pvideo" id="vd-film-frame" style="margin:.2rem 0 .9rem">
         <div style="text-align:center">
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>

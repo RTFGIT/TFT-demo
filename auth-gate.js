@@ -78,6 +78,7 @@
     #tft-access .who { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
     #tft-access .role { font-size: .64rem; padding: .15rem .45rem; border-radius: 99px; background: #2b2b2b; color: #e0e0d8; }
     #tft-access .role.admin { background: #f3f3f0; color: #000; }
+    #tft-access .role.manager { background: #3a3a2a; color: #f0e6b8; }
     #tft-access .sp { flex: 1; }
     #tft-access button { background: none; border: 1px solid #3a3a3a; color: #fff; border-radius: 5px;
       padding: .2rem .6rem; font: inherit; cursor: pointer; }
@@ -155,11 +156,11 @@
     document.getElementById('tft-gate')?.remove();
     const bar = document.createElement('div');
     bar.id = 'tft-access';
-    const admin = claims.admin === true;
+    const admin = claims.admin === true, manager = !admin && claims.manager === true;
     bar.innerHTML = `
       <span class="lbl">Demo access</span>
       <span class="who" title="${esc(user.email)}">${esc(user.displayName || user.email)}</span>
-      <span class="role ${admin ? 'admin' : ''}">${admin ? 'Admin' : 'Guest'}</span>
+      <span class="role ${admin ? 'admin' : manager ? 'manager' : ''}" ${manager ? 'title="Read-only: you can see everything but not change it"' : ''}>${admin ? 'Admin' : manager ? 'Manager · read-only' : 'Guest'}</span>
       <span class="sp"></span>
       <button type="button">Sign out</button>`;
     bar.querySelector('button').addEventListener('click', async () => {
@@ -200,7 +201,7 @@
         return showLogin(api, note);
       }
       const { claims } = await user.getIdTokenResult();
-      if (claims.demo === true || claims.admin === true) return unlock(api, user, claims);
+      if (claims.demo === true || claims.admin === true || claims.manager === true) return unlock(api, user, claims);
       try { sessionStorage.setItem('tft_gate_note', 'That account hasn’t been given access to the demo.'); } catch {}
       await api.authM.signOut(api.auth);          // reloads, then asks again
     });
