@@ -2,187 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="auth-gate.js"></script>
-<script src="embed-frame.js"></script>
-<title>Try for Tomorrow demo</title>
-<link rel="stylesheet" href="demo-theme.css">
-<!-- Stand-ins for the design sheet's Norwester + Indivisible — see theme-tokens.css. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,600&display=swap">
+<meta name="robots" content="noindex, nofollow">
+<title>Try for Tomorrow has moved</title>
+<script>
+  // The tool has moved to Firebase Hosting. Keep the page and its address:
+  // https://rtfgit.github.io/TFT-demo/<path>?<query>#<hash> → https://rtf-tft.web.app/<path>?<query>#<hash>
+  (function () {
+    var path = location.pathname.replace(/^\/TFT-demo\/?/, '');
+    location.replace('https://rtf-tft.web.app/' + path + location.search + location.hash);
+  })();
+</script>
+<meta http-equiv="refresh" content="0; url=https://rtf-tft.web.app/">
 <style>
-  .boundary { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.5rem; align-items:stretch; }
-  .store { border-radius:12px; padding:.85rem .95rem; border:1px solid var(--line); background:#fff; }
-  .store.wp     { border-color:#fcd34d; background:#fffbeb; }
-  .store.widget { border-color:#93c5fd; background:#eff6ff; }
-  .store.fb     { border-color:#a7f3d0; background:#ecfdf5; }
-  .store .h { font-weight:700; font-size:.83rem; display:flex; align-items:center; gap:.4rem; }
-  .store .k { font-family:ui-monospace,Consolas,monospace; font-size:.66rem; color:var(--muted); margin-top:.15rem; }
-  .store ul { margin:.5rem 0 0 1rem; font-size:.75rem; line-height:1.55; }
-  .divider { display:grid; place-items:center; color:var(--muted); font-size:.9rem; font-weight:700; }
-  @media (max-width:720px){ .boundary { grid-template-columns:1fr; }
-                            .divider { transform:rotate(90deg); padding:.2rem 0; } }
-  .mode-badge.live { background:#dbeafe; color:#1e40af; }
-  .mode-switch { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; margin-top:.6rem; font-size:.82rem; }
-  .mode-switch .btn { padding:.35rem .8rem; font-size:.8rem; }
-  .mode-switch .btn[aria-pressed="true"] { pointer-events:none; }
-  .mode-badge { display:inline-block; margin-left:.5rem; padding:.1rem .5rem; border-radius:99px;
-                background:#d1fae5; color:#065f46; font-size:.66rem; letter-spacing:.04em; vertical-align:1px; }
-  .card.intro { font-size:.9rem; line-height:1.6; margin-bottom:1rem; }
-  .intro-steps { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
-  .intro-steps span { background:var(--accent-soft); color:var(--accent-strong); border-radius:8px; padding:.3rem .6rem; font-size:.8rem; font-weight:700; }
+  body { font-family: system-ui, sans-serif; background: #fffdf3; color: #111; display: grid; place-items: center;
+         min-height: 100vh; margin: 0; padding: 16px; text-align: center; }
+  a { color: #3f6536; font-weight: 700; }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header class="page">
-    <div class="eyebrow">RTFxRFL <span class="mode-badge" id="mode-badge">● Sandbox</span></div>
-    <h1>Try for Tomorrow demo</h1>
-  </header>
-
-  <div class="card intro">
-    A working demo of the Try for Tomorrow pledge tool, filled with testing data.
-    <p style="margin-top:.5rem">To try it, sign in to the facilitator portal using the demo credentials where you can create and manage cohorts, groups and students; deliver sessions and submit pledges.</p>
-    <p style="margin-top:.5rem">Sign into the Admin console using the demo admin credentials to check what has been recorded platform wide from all facilitators.</p>
-  </div>
-
-  <div class="emulation-note" id="note-sandbox">
-    <strong>Sandbox.</strong> Everything stays in this browser. Use <em>Reset all demo data</em> to start again.
-    <div class="mode-switch"><span>Mode:</span>
-      <button class="btn" aria-pressed="true">Sandbox</button>
-      <button class="btn secondary" data-mode="live">Switch to Live</button>
-      <span class="muted" id="live-unavailable" hidden>Live mode isn't configured yet.</span></div>
-  </div>
-  <div class="emulation-note" id="note-live" hidden style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a">
-    <strong>Live.</strong> A shared demo database, visible to anyone using the demo. Student names stay in this browser. Don’t enter real names.
-    <div class="mode-switch"><span>Mode:</span>
-      <button class="btn secondary" data-mode="sandbox">Switch to Sandbox</button>
-      <button class="btn" aria-pressed="true">Live</button></div>
-  </div>
-
-  <h2 class="section">Open</h2>
-  <div class="grid">
-    <a class="card lead" href="facilitator/index.html">
-      <div class="t">Facilitator portal</div>
-      <div class="d">Dashboard, cohorts and session delivery. Stands in for the WordPress site.</div>
-      <div class="meta">alex@democollege.ac.uk · tftdemo</div>
-    </a>
-
-    <a class="card lead" href="admin_console/index.html">
-      <div class="t">Admin console</div>
-      <div class="d">Providers, sessions, pledges and moderation.</div>
-      <div class="meta">admin@tft-demo.example · tftadmin</div>
-    </a>
-
-    <a class="card lead" href="integration.html">
-      <div class="t">How the widget embeds</div>
-      <div class="d">How the widget sits inside a WordPress page, and the embed code.</div>
-      <div class="meta">embed guide</div>
-    </a>
-
-    <a class="card" href="widget-demo.html">
-      <div class="t">Pledge widget</div>
-      <div class="d">The pledge widget on its own, with a button to test the kick animation.</div>
-      <div class="meta">GitHub-hosted · public_widget/</div>
-    </a>
-  </div>
-
-  <h2 class="section">How names stay private</h2>
-  <div class="boundary">
-    <div class="store wp">
-      <div class="h">WordPress</div>
-      <div class="k">tft26_wp_emulator_v1</div>
-      <ul>
-        <li>Facilitator accounts</li>
-        <li><strong>Real student names</strong></li>
-        <li>Name → <span class="ref">p_…</span> mapping</li>
-        <li>Cohort / session pages</li>
-      </ul>
-    </div>
-    <div class="divider">→</div>
-    <div class="store widget">
-      <div class="h">Pledge widget</div>
-      <div class="k">GitHub Pages · public_widget/</div>
-      <ul>
-        <li>Question, options &amp; counter</li>
-        <li>Captures the pledge</li>
-        <li><strong>Name-blind</strong> — gets a <span class="ref">p_…</span> ref</li>
-        <li>Writes straight to Firebase</li>
-      </ul>
-    </div>
-    <div class="divider">→</div>
-    <div class="store fb">
-      <div class="h">Firebase</div>
-      <div class="k">tft26_localdb_v1</div>
-      <ul>
-        <li>Providers, cohorts, runs</li>
-        <li>Pledges by <span class="ref">student_ref</span></li>
-        <li><strong>Never a name</strong></li>
-        <li>All-provider totals</li>
-      </ul>
-    </div>
-  </div>
-  <div class="card" style="margin-top:.8rem">
-    <div class="row between" style="flex-wrap:wrap;gap:.6rem">
-      <div style="font-size:.85rem">
-        Check that no student name has reached the pledge database.
-      </div>
-      <button class="btn" id="check">Run check</button>
-    </div>
-    <pre id="check-out" class="hidden mono" style="margin-top:.8rem;background:#0f172a;color:#a7f3d0;
-         padding:.8rem;border-radius:9px;font-size:.76rem;overflow-x:auto;white-space:pre-wrap"></pre>
-  </div>
-
-  <h2 class="section">Demo logins</h2>
-  <table>
-    <thead><tr><th>Where</th><th>Email</th><th>Password</th><th>Role</th></tr></thead>
-    <tbody>
-      <tr><td>Facilitator site</td><td><code>alex@democollege.ac.uk</code></td><td><code>tftdemo</code></td><td>Northvale RL Foundation</td></tr>
-      <tr><td>Facilitator site</td><td><code>sam@demoacademy.ac.uk</code></td><td><code>tftdemo</code></td><td>Eastbrook Community Foundation</td></tr>
-      <tr><td>Admin console</td><td><code>admin@tft-demo.example</code></td><td><code>tftadmin</code></td><td>Full access</td></tr>
-    </tbody>
-  </table>
-
-  <h2 class="section">Reset</h2>
-  <div class="card">
-    <div class="row between" style="flex-wrap:wrap;gap:.6rem">
-      <div style="font-size:.85rem">Clears all Sandbox data and restores the demo programme.</div>
-      <button class="btn danger" id="reset">Reset all demo data</button>
-    </div>
-  </div>
-
-</div>
-
-<script type="module">
-  import './local-firebase.js';
-  import './wp-emulator.js';
-  import { MODE, LIVE_UNAVAILABLE } from './data-layer.js';
-
-  // Mode badge, note and switch.
-  const badge = document.getElementById('mode-badge');
-  badge.textContent = MODE === 'live' ? '● Live' : '● Sandbox';
-  badge.classList.toggle('live', MODE === 'live');
-  document.getElementById('note-sandbox').hidden = MODE === 'live';
-  document.getElementById('note-live').hidden = MODE !== 'live';
-  document.getElementById('live-unavailable').hidden = !LIVE_UNAVAILABLE;
-  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
-    location.href = location.pathname + '?mode=' + b.dataset.mode;
-  }));
-
-  document.getElementById('check').addEventListener('click', () => {
-    const out = document.getElementById('check-out');
-    out.textContent = JSON.stringify(window.__wp.boundaryReport(), null, 2);
-    out.classList.remove('hidden');
-  });
-
-  document.getElementById('reset').addEventListener('click', () => {
-    if (!confirm('Reset all demo data in both emulated stores?')) return;
-    ['tft26_localdb_v1','tft26_localauth_v1','tft26_localusers_v1',
-     'tft26_wp_emulator_v1','tft26_wp_session_v1','tft26_active_run_v1'].forEach(k => localStorage.removeItem(k));
-    sessionStorage.clear();
-    location.reload();
-  });
-</script>
+  <p>Try for Tomorrow has moved to <a href="https://rtf-tft.web.app/">rtf-tft.web.app</a>.</p>
 </body>
 </html>
