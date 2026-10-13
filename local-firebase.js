@@ -212,6 +212,8 @@ function makeUser(u) {
   return {
     uid: u.uid,
     email: u.email,
+    emailVerified: true,
+    displayName: u.name || '',
     getIdToken: async () => 'local-token',
     getIdTokenResult: async () => ({ claims: { ...u.claims } })
   };
@@ -233,6 +235,23 @@ export async function signInWithEmailAndPassword(auth, email, password) {
   authListeners.slice().forEach(cb => cb(currentUser));
   return { user: currentUser };
 }
+/**
+ * Sandbox stand-ins for the admin console's Users page. Nothing is emailed:
+ * the account is recorded locally with a password nobody knows, and the
+ * "set your password" email just logs to the console.
+ */
+export async function inviteAccount(email) {
+  const users = loadUsers();
+  const existed = allUsers().some(u => u.email === email);
+  if (!existed) {
+    users.push({ uid: 'u-' + genId(), email, password: genId() + genId(), claims: {} });
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+  }
+  console.info('[sandbox] would email a set-password link to', email);
+  return { created: !existed };
+}
+export async function sendPasswordReset(email) { console.info('[sandbox] would email a set-password link to', email); }
+
 export async function signOut(auth) {
   currentUser = null;
   localStorage.removeItem(LS_AUTH);

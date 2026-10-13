@@ -151,16 +151,16 @@
     });
   }
 
-  async function unlock(api, user, claims) {
+  async function unlock(api, user, role, label, name) {
     await ready;
     document.getElementById('tft-gate')?.remove();
     const bar = document.createElement('div');
     bar.id = 'tft-access';
-    const admin = claims.admin === true, manager = !admin && claims.manager === true;
+    const admin = role === 'admin', manager = role === 'manager';
     bar.innerHTML = `
       <span class="lbl">Demo access</span>
-      <span class="who" title="${esc(user.email)}">${esc(user.displayName || user.email)}</span>
-      <span class="role ${admin ? 'admin' : manager ? 'manager' : ''}" ${manager ? 'title="Read-only: you can see everything but not change it"' : ''}>${admin ? 'Admin' : manager ? 'Manager · read-only' : 'Guest'}</span>
+      <span class="who" title="${esc(user.email)}">${esc(name)}</span>
+      <span class="role ${admin ? 'admin' : manager ? 'manager' : ''}" ${manager ? 'title="Read-only: you can see everything but not change it"' : ''}>${esc(label)}</span>
       <span class="sp"></span>
       <button type="button">Sign out</button>`;
     bar.querySelector('button').addEventListener('click', async () => {
@@ -171,7 +171,7 @@
     document.body.prepend(bar);
     html.classList.add('tft-in');
     html.classList.remove('tft-gated');
-    window.TFT_ACCESS = { email: user.email, name: user.displayName || user.email, admin };
+    window.TFT_ACCESS = { email: user.email, name, role, admin };
   }
 
   (async () => {
@@ -180,9 +180,10 @@
     try {
       const { FIREBASE_CONFIG } = await import(new URL('firebase-config.js', ROOT).href);
       if (!FIREBASE_CONFIG) { showWait('Demo access isn’t set up on this copy of the site.'); return; }
-      const [appM, authM] = await Promise.all([import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-auth.js`)]);
+      const [appM, authM, fsM, roles] = await Promise.all([import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-auth.js`),
+        import(`${SDK}/firebase-firestore.js`), import(new URL('roles.js', ROOT).href)]);
       const app = appM.getApps().length ? appM.getApp() : appM.initializeApp(FIREBASE_CONFIG);
-      api = { authM, auth: authM.getAuth(app) };
+      api = { authM, auth: authM.getAuth(app), fsM, db: fsM.getFirestore(app), roles };
     } catch (e) {
       console.error('[TFT] access check failed', e);
       showWait('Can’t reach the sign-in service. Check the connection and reload.');
@@ -200,9 +201,20 @@
         try { note = sessionStorage.getItem('tft_gate_note') || ''; sessionStorage.removeItem('tft_gate_note'); } catch {}
         return showLogin(api, note);
       }
+      // The role: the people list (admin console → Users) if they're on it,
+      // otherwise the account's claims — the same as firestore.rules decides.
       const { claims } = await user.getIdTokenResult();
-      if (claims.demo === true || claims.admin === true || claims.manager === true) return unlock(api, user, claims);
-      try { sessionStorage.setItem('tft_gate_note', 'That account hasn’t been given access to the demo.'); } catch {}
+      const readEntry = async (email) => {
+        const snap = await api.fsM.getDoc(api.fsM.doc(api.db, 'staff', email));
+        return snap.exists() ? snap.data() : null;
+      };
+      let entry = null;
+      try { entry = await readEntry(user.email.toLowerCase()); } catch {}
+      const { role, reason } = await api.roles.resolveRole(user, claims, async () => entry);
+      if (role !== 'none') {
+        return unlock(api, user, role, api.roles.ROLE_LABEL[role], entry?.name || user.displayName || user.email);
+      }
+      try { sessionStorage.setItem('tft_gate_note', api.roles.NO_ACCESS_NOTE[reason] || api.roles.NO_ACCESS_NOTE['no-role']); } catch {}
       await api.authM.signOut(api.auth);          // reloads, then asks again
     });
   })();

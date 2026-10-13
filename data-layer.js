@@ -58,8 +58,33 @@ if (MODE === 'live') {
   // Wait for Auth to restore a persisted session before any page code runs.
   await new Promise(res => { const off = authM.onAuthStateChanged(auth, () => { off(); res(); }); });
 
+  /**
+   * Create someone's account and email them a link to set their own password
+   * (admin console → Users). A second, private Firebase app does the creating,
+   * so the admin stays signed in as themselves. Nobody ever knows the random
+   * starting password. If the account already exists (e.g. added in the Firebase
+   * console), it's left as it is and they're just sent the link.
+   */
+  async function inviteAccount(email) {
+    const other = appM.getApps().find(a => a.name === 'tft-invite') || appM.initializeApp(FIREBASE_CONFIG, 'tft-invite');
+    const otherAuth = authM.getAuth(other);
+    const random = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
+    let created = false;
+    try {
+      await authM.createUserWithEmailAndPassword(otherAuth, email, random);
+      created = true;
+    } catch (e) {
+      if (e?.code !== 'auth/email-already-in-use') throw e;
+    } finally {
+      await authM.signOut(otherAuth).catch(() => {});
+    }
+    await authM.sendPasswordResetEmail(auth, email);
+    return { created };
+  }
+  const sendPasswordReset = (email) => authM.sendPasswordResetEmail(auth, email);
+
   api = {
-    ...fsM, ...authM,
+    ...fsM, ...authM, inviteAccount, sendPasswordReset,
     // Pages call initializeApp()/getFirestore()/getAuth() with sandbox-style
     // arguments; in Live mode they always get the one real app instance.
     initializeApp: () => app,
@@ -75,7 +100,8 @@ export const {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
   doc, collection, query, orderBy, where, limit,
   getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
-  onSnapshot, runTransaction, writeBatch, increment, serverTimestamp, arrayUnion
+  onSnapshot, runTransaction, writeBatch, increment, serverTimestamp, arrayUnion,
+  inviteAccount, sendPasswordReset
 } = api;
 
 /** The currently signed-in Firebase user (Live) or shim user (Sandbox), if any. */

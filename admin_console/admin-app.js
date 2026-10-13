@@ -7,7 +7,8 @@
  *   3. What pledges were captured in each run of each session?
  *   4. What are the All-Providers totals per session?
  *   5. How did groups answer the evaluation survey, before and after? (Evaluation)
- * …and lets admins set the session videos every facilitator plays (Session videos).
+ * …and lets admins set the session videos every facilitator plays (Session videos)
+ * and manage who can use the tool (Users).
  *
  * ROLES (firestore.rules enforces them; this console only follows suit)
  *   admin    everything, including Session videos
@@ -24,7 +25,8 @@
 import {
   initializeApp, getFirestore, getAuth, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, doc, getDoc, getDocs, setDoc, collection, updateDoc, deleteDoc, query, orderBy, where,
-  serverTimestamp, MODE, currentUser } from '../data-layer.js';
+  serverTimestamp, inviteAccount, sendPasswordReset, MODE, currentUser } from '../data-layer.js';
+import { resolveRole, ROLES, ROLE_HELP } from '../roles.js';
 import { videoEmbed, videoKind, VIDEO_KIND_LABEL } from '../video-embed.js';
 import * as sessionConfig from '../public_widget/session-config.js';
 import { listSessionDocs, versionUrl, projectorPagePath, projectorPageStatus } from '../doc-store.js';
@@ -65,7 +67,16 @@ const PERSONA = { email: 'admin@tft-demo.example', password: 'tftadmin' };
 const LS_PERSONA = 'tft26_admin_persona_v1';
 /** 'admin' | 'manager' | 'guest' — set on sign-in. */
 let role = 'guest';
-const roleFromClaims = (c) => c.admin ? 'admin' : c.manager ? 'manager' : 'guest';
+/** The signed-in account's role (roles.js — the people list, else its claims). */
+async function roleOfUser(user) {
+  if (!user) return 'guest';
+  const { claims } = await user.getIdTokenResult();
+  const { role: r } = await resolveRole(user, claims, async (email) => {
+    const snap = await getDoc(doc(db, 'staff', email));
+    return snap.exists() ? snap.data() : null;
+  });
+  return r;
+}
 /** Managers are read-only: no change controls are shown to them. */
 const canChange = () => role !== 'manager';
 const ROLE_LABEL = { admin: 'Admin', manager: 'Manager · read-only', guest: 'Demo admin' };
@@ -101,6 +112,7 @@ function enter(label, staff = false) {
   $('ab-signout').classList.toggle('hidden', MODE === 'live' && staff);
   $('ab-nav').classList.remove('hidden');
   document.querySelector('[data-nav="videos"]').classList.toggle('hidden', role !== 'admin');
+  document.querySelector('[data-nav="users"]').classList.toggle('hidden', role !== 'admin');
   document.body.classList.toggle('read-only', !canChange());
   viewDash();
 }
@@ -113,7 +125,8 @@ function leave(message) {
 if (MODE === 'live') {
   (async () => {
     const real = currentUser();
-    role = real ? roleFromClaims((await real.getIdTokenResult()).claims) : 'guest';
+    role = await roleOfUser(real);
+    if (role === 'none') role = 'guest';             // the gate keeps no-access accounts out
     if (role !== 'guest') return enter(real.displayName || real.email, true);
     let persona = null;
     try { persona = localStorage.getItem(LS_PERSONA); } catch {}
@@ -122,10 +135,9 @@ if (MODE === 'live') {
 } else {
   onAuthStateChanged(auth, async (user) => {
     if (!user) return leave();
-    // Client-side claim check; the rules enforce it server-side too.
-    const token = await user.getIdTokenResult();
-    role = roleFromClaims(token.claims);
-    if (role === 'guest') { await signOut(auth); return leave('That account does not have admin access.'); }
+    // Client-side check; the rules enforce it server-side too.
+    role = await roleOfUser(user);
+    if (role !== 'admin' && role !== 'manager') { await signOut(auth); return leave('That account does not have admin access.'); }
     enter(user.email);
   });
 }
@@ -138,7 +150,8 @@ $('ab-signout').addEventListener('click', e => {
 document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
   e.preventDefault();
   const v = a.dataset.nav;
-  v === 'docs' ? viewDocs() : v === 'eval' ? viewEval() : v === 'videos' ? viewSessionVideos() : viewDash();
+  v === 'docs' ? viewDocs() : v === 'eval' ? viewEval() : v === 'videos' ? viewSessionVideos()
+    : v === 'users' ? viewUsers() : viewDash();
 }));
 function navOn(which) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === which)); }
 
@@ -755,4 +768,122 @@ async function viewSessionVideos() {
     });
     sync();
   });
+}
+
+// ─── Users — who can use the tool, and what they can do (admins only) ────────
+/**
+ * The people list (staff/{email}). Adding someone creates their account and
+ * emails them a link to set their own password; their role works once they've
+ * used it (that's what verifies their email — see roles.js / firestore.rules).
+ * Admins can change anyone's role or switch them off — but not their own entry,
+ * so nobody locks themselves out. Switching off is used rather than deleting,
+ * so an older account's built-in role can't come back.
+ */
+const ROLE_NAME = { admin: 'Admin', manager: 'Manager', guest: 'Guest' };
+const EMAIL_RE = /^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/;
+
+async function viewUsers() {
+  render('v-users');
+  navOn('users');
+  if (role !== 'admin') { $('us-body').innerHTML = '<div class="empty">Only admins can manage users.</div>'; return; }
+  $('us-sandbox').classList.toggle('hidden', MODE === 'live');
+  $('us-role').innerHTML = ROLES.map(r => `<option value="${r}" ${r === 'manager' ? 'selected' : ''}>${ROLE_NAME[r]} — ${ROLE_HELP[r]}</option>`).join('');
+  const me = (currentUser()?.email || $('ab-user').textContent || '').toLowerCase();
+
+  let people = [];
+  async function load() {
+    const snap = await getDocs(collection(db, 'staff'));
+    people = snap.docs.map(d => d.data()).sort((a, b) =>
+      (b.active === true) - (a.active === true) || ROLES.indexOf(a.role) - ROLES.indexOf(b.role) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
+  }
+  const flash = (text, kind = 'ok') => { const m = $('us-msg'); m.textContent = text; m.className = 'us-msg ' + kind; };
+
+  function paint() {
+    if (!$('us-list')) return;
+    $('us-count').textContent = `${people.filter(p => p.active).length} active · ${people.length} on the list`;
+    $('us-list').innerHTML = people.length ? people.map(p => {
+      const self = p.email === me;
+      return `<tr class="${p.active ? '' : 'off'}">
+        <td><strong>${esc(p.name || '—')}</strong>${self ? ' <span class="pill none">You</span>' : ''}<div class="muted us-email">${esc(p.email)}</div></td>
+        <td><select data-role="${esc(p.email)}" ${self ? 'disabled title="You can’t change your own role"' : ''} aria-label="Role for ${esc(p.email)}">
+          ${ROLES.map(r => `<option value="${r}" ${r === p.role ? 'selected' : ''}>${ROLE_NAME[r]}</option>`).join('')}</select></td>
+        <td>${p.active ? '<span class="pill ok">On</span>' : '<span class="pill none">Off</span>'}</td>
+        <td class="muted us-when">${p.added_at ? when(p.added_at) : '—'}${p.added_by ? '<br>by ' + esc(p.added_by) : ''}</td>
+        <td class="us-acts">${self ? '' : `
+          <button class="btn ghost" data-resend="${esc(p.email)}" ${p.active ? '' : 'disabled'}>Resend link</button>
+          <button class="btn ${p.active ? 'ghost danger-text' : 'secondary'}" data-toggle="${esc(p.email)}">${p.active ? 'Switch off' : 'Switch on'}</button>`}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="5"><div class="empty">No one on the list yet.</div></td></tr>';
+
+    appEl.querySelectorAll('[data-role]').forEach(sel => sel.addEventListener('change', async () => {
+      const p = people.find(x => x.email === sel.dataset.role);
+      const to = sel.value;
+      const ok = await askConfirm({
+        title: `Make ${p.name || p.email} ${to === 'admin' ? 'an' : 'a'} ${ROLE_NAME[to]}?`,
+        body: ROLE_HELP[to] + '. It takes effect the next time they open a page.',
+        confirm: `Make ${ROLE_NAME[to]}`, danger: to === 'admin'
+      });
+      if (ok !== 'confirm') { sel.value = p.role; return; }
+      await save(p, { role: to }, `${p.name || p.email} is now ${to === 'admin' ? 'an' : 'a'} ${ROLE_NAME[to]}.`);
+    }));
+    appEl.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
+      const p = people.find(x => x.email === b.dataset.toggle);
+      if (p.active) {
+        const ok = await askConfirm({ title: `Switch off ${p.name || p.email}?`,
+          body: 'They won’t be able to sign in or see anything. You can switch them back on at any time.',
+          confirm: 'Switch off', danger: true });
+        if (ok !== 'confirm') return;
+      }
+      await save(p, { active: !p.active }, p.active ? `${p.name || p.email} is switched off.` : `${p.name || p.email} is switched back on.`);
+    }));
+    appEl.querySelectorAll('[data-resend]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await sendPasswordReset(b.dataset.resend); flash(`Sent a new set-password link to ${b.dataset.resend}.`); }
+      catch (e) { console.error(e); flash('Couldn’t send the link. Try again in a minute.', 'bad'); }
+      b.disabled = false;
+    }));
+  }
+
+  async function save(p, change, done) {
+    try {
+      await setDoc(doc(db, 'staff', p.email), { ...p, ...change, updated_by: me, updated_at: serverTimestamp() });
+      await load(); paint(); flash(done);
+    } catch (e) {
+      console.error('[TFT26] could not update user', e);
+      flash('Couldn’t save that change.', 'bad'); paint();
+    }
+  }
+
+  // ── Add someone ──
+  $('us-add').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = $('us-email').value.trim().toLowerCase(), name = $('us-name').value.trim().slice(0, 80), r = $('us-role').value;
+    if (!EMAIL_RE.test(email)) return flash('Enter a valid email address.', 'bad');
+    if (!name) return flash('Enter their name.', 'bad');
+    if (email === me) return flash('That’s you — you’re already on the list.', 'bad');
+    const existing = people.find(p => p.email === email);
+    if (existing) return flash(`${email} is already on the list — change their role below.`, 'bad');
+    const btn = $('us-go'); btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      // The role first, then the account and the email — so by the time they
+      // follow the link, their role is already waiting for them.
+      await setDoc(doc(db, 'staff', email), { email, name, role: r, active: true, added_by: me, added_at: serverTimestamp() });
+      const { created } = await inviteAccount(email);
+      $('us-add').reset(); $('us-role').value = 'manager';
+      await load(); paint();
+      flash(created
+        ? `Added ${name} as ${r === 'admin' ? 'an' : 'a'} ${ROLE_NAME[r]}. They’ve been emailed a link to set their password.`
+        : `${name} already had an account — they’re now ${r === 'admin' ? 'an' : 'a'} ${ROLE_NAME[r]}, and have been emailed a link to set their password.`);
+    } catch (err) {
+      console.error('[TFT26] could not add user', err);
+      flash(err?.code === 'auth/too-many-requests' ? 'Too many attempts — wait a minute and try again.'
+          : err?.code?.startsWith?.('auth/') ? 'They’re on the list, but the email couldn’t be sent. Use “Resend link”.'
+          : 'Couldn’t add them. Check the details and try again.', 'bad');
+      await load().catch(() => {}); paint();
+    }
+    btn.disabled = false; btn.textContent = 'Add and email invite';
+  });
+
+  try { await load(); } catch (e) { console.error(e); $('us-list').innerHTML = '<tr><td colspan="5"><div class="empty">Couldn’t load the list.</div></td></tr>'; return; }
+  paint();
 }

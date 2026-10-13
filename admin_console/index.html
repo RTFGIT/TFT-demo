@@ -23,10 +23,13 @@
 
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
   @media (max-width:640px){ .admin-bar { gap:.6rem; font-size:.78rem; } #ab-user { display:none; } }
-  /* Phones: the bar wraps, with the page links in their own scrollable row. */
-  @media (max-width:640px){
+  /* Up to laptop width the bar wraps, with the page links in their own
+     scrollable row (there are six of them for admins). */
+  .admin-bar > *, .ab-nav a { white-space:nowrap; }
+  @media (max-width:1300px){ #ab-user { display:none; } }
+  @media (max-width:640px){ .admin-bar > a[data-embed-hide] { display:none; } }
+  @media (max-width:1100px){
     body { padding-top:5.9rem; }
-    .admin-bar > a[data-embed-hide] { display:none; }
     .admin-bar { height:auto; min-height:46px; flex-wrap:wrap; row-gap:0; padding:.3rem .9rem 0; }
     .admin-bar > * { white-space:nowrap; }
     .ab-nav { order:10; flex-basis:100%; overflow-x:auto; padding-bottom:.35rem; scrollbar-width:none; }
@@ -71,6 +74,21 @@
   .role-pill.admin { background:#f3f3f0; color:#111; }
   .role-pill.manager { background:#fef3c7; color:#92400e; }
   .role-pill.guest { background:#1e293b; color:#cbd5e1; border:1px solid #334155; }
+  /* Users */
+  .us-add { display:flex; flex-direction:column; gap:.7rem; }
+  .us-grid { display:grid; grid-template-columns:1.4fr 1.2fr 1.4fr; gap:.7rem; }
+  .us-grid .field { margin:0; }
+  .us-foot { display:flex; justify-content:space-between; align-items:center; gap:.8rem; flex-wrap:wrap; font-size:.82rem; }
+  .us-msg { min-height:1.4em; margin-top:.6rem; font-weight:700; font-size:.88rem; color:#cbd5e1; }
+  .us-msg.ok { color:#86efac; } .us-msg.bad { color:#fca5a5; }
+  .us-table td { vertical-align:middle; }
+  .us-table select { width:auto; min-width:120px; padding:.4rem .5rem; }
+  .us-table tr.off td { opacity:.6; }
+  .us-email { font-size:.78rem; }
+  .us-when { font-size:.78rem; }
+  .us-acts { text-align:right; white-space:nowrap; }
+  .btn.danger-text { color:var(--danger); }
+  @media (max-width:760px){ .us-grid { grid-template-columns:1fr; } }
   /* Session videos */
   .vid-card { display:flex; flex-direction:column; gap:.8rem; }
   .vid-head { display:flex; justify-content:space-between; align-items:baseline; gap:.6rem; flex-wrap:wrap; }
@@ -144,6 +162,7 @@
     <a href="#" data-nav="eval">Evaluation</a>
     <a href="#" data-nav="docs">Session documents</a>
     <a href="#" data-nav="videos" class="hidden">Session videos</a>
+    <a href="#" data-nav="users" class="hidden">Users</a>
   </nav>
   <span class="spacer"></span>
   <span id="ab-user"></span>
@@ -196,6 +215,42 @@
       <tbody id="ev-groups"></tbody>
     </table></div>
     <p class="muted" style="font-size:.78rem;margin-top:.6rem">Select a group to see its answers. Responses are per group; nothing identifies an individual.</p>
+  </div>
+</template>
+
+<template id="v-users">
+  <div class="wrap">
+    <header class="page">
+      <div class="eyebrow">Access · admins only</div>
+      <h1>Users</h1>
+      <p class="sub">Who can sign in, and what they can do.</p>
+    </header>
+    <div id="us-body">
+      <form class="card us-add" id="us-add" novalidate>
+        <strong>Add someone</strong>
+        <div class="us-grid">
+          <label class="field"><span>Email</span><input type="email" id="us-email" autocomplete="off" placeholder="name@rethinkfood.co.uk"></label>
+          <label class="field"><span>Name</span><input type="text" id="us-name" autocomplete="off" maxlength="80" placeholder="Their full name"></label>
+          <label class="field"><span>Role</span><select id="us-role"></select></label>
+        </div>
+        <div class="us-foot">
+          <span class="muted">They’re emailed a link to set their own password. Their role works once they’ve used it.</span>
+          <button class="btn" id="us-go" type="submit">Add and email invite</button>
+        </div>
+        <p class="muted hidden" id="us-sandbox" style="font-size:.78rem;margin-top:.4rem">Sandbox: nothing is emailed and no real account is made.</p>
+      </form>
+      <div class="us-msg" id="us-msg" role="status"></div>
+      <div class="row between" style="margin:1.2rem 0 .5rem"><h2 class="section" style="margin:0">People</h2><span class="muted" id="us-count" style="font-size:.82rem"></span></div>
+      <div class="table-scroll"><table class="us-table">
+        <thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Added</th><th></th></tr></thead>
+        <tbody id="us-list"><tr><td colspan="5"><div class="empty">Loading…</div></td></tr></tbody>
+      </table></div>
+      <p class="muted" style="font-size:.78rem;margin-top:.6rem">
+        <strong>Admin</strong> — everything, including Session videos and Users ·
+        <strong>Manager</strong> — sees everything, changes nothing ·
+        <strong>Guest</strong> — the shared demo only. You can’t change your own entry.
+      </p>
+    </div>
   </div>
 </template>
 
