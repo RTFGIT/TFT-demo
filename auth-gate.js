@@ -30,7 +30,7 @@
 
   const ROOT = new URL('./', document.currentScript.src);   // the site root
   const SDK = 'https://www.gstatic.com/firebasejs/12.19.0';
-  const PERSONA_KEYS = ['tft26_wp_session_v1', 'tft26_admin_persona_v1', 'tft26_active_run_v1'];
+  const PERSONA_KEYS = ['tft26_wp_session_v1', 'tft26_wp_account_v1', 'tft26_admin_persona_v1', 'tft26_active_run_v1'];
   // Running the source on this computer (localhost) in Sandbox: no real sign-in.
   // Sandbox never touches the real database, so there's nothing to protect, and
   // it lets the team try the tool before accounts exist. Never applies to the

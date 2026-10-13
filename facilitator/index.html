@@ -531,6 +531,8 @@
   .group-head .del-group { color:var(--danger); font-size:.8rem; }
   .cohort-details { display:grid; grid-template-columns:2fr 1.5fr 1.5fr; gap:.8rem; }
   .cohort-details .field { margin:0; }
+  .cohort-details .field > span { display:block; font-size:.82rem; font-weight:700; margin-bottom:.3rem; }
+  .mc-fixed { padding:.62rem 0; font-weight:700; }
   @media (max-width:700px){ .cohort-details { grid-template-columns:1fr; } }
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .invisible { visibility:hidden; }
@@ -709,8 +711,8 @@
     <div class="card cohort-details" style="margin-bottom:1rem">
       <label class="field"><span>Cohort name</span>
         <input type="text" id="mc-label" placeholder="Cohort name"></label>
-      <label class="field"><span>Foundation</span>
-        <input type="text" id="mc-foundation" maxlength="120" placeholder="Your Foundation"></label>
+      <div class="field"><span>Foundation</span>
+        <div class="mc-fixed" id="mc-foundation" title="Your Foundation, set by Rethink Food"></div></div>
       <label class="field"><span>School</span>
         <input type="text" id="mc-school" maxlength="120" placeholder="The school’s name"></label>
     </div>

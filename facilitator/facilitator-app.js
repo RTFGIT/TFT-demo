@@ -47,8 +47,9 @@ import {
   wpSignIn, wpSignOut, wpCurrentUser, wpAccounts, wpSessionPage, wpSessionPages,
   wpCohorts, wpHasAnyCohort, wpGetCohort, wpCreateCohort, wpRenameCohort, wpUpdateCohortDetails, wpDeleteCohort,
   wpGroups, wpAddGroup, wpRenameGroup, wpRemoveGroup,
-  wpAddStudent, wpUpdateStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES, wpApplySessionMedia
+  wpAddStudent, wpUpdateStudent, wpRemoveStudent, wpRoster, wpCapStatus, WP_ROUTES, wpApplySessionMedia, wpUseAccount
 } from '../wp-emulator.js';
+import { resolveRole } from '../roles.js';
 import { videoEmbed } from '../video-embed.js';
 import {
   initializeApp, getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
@@ -127,7 +128,7 @@ function permalinkForHash(full) {
 }
 function setChrome() {
   $('wp-user').textContent = user ? `${user.display_name} · ${user.provider_name}` : '';
-  $('wp-signout').classList.toggle('hidden', !user);
+  $('wp-signout').classList.toggle('hidden', !user || !!user.real);
   $('wp-dash').classList.toggle('hidden', !user);
   $('wp-dash').classList.toggle('on', location.hash === '#/dashboard');
   $('wp-route').textContent = permalinkForHash(location.hash || '');
@@ -557,9 +558,8 @@ function viewCohort(cid) {
   $('mc-title').textContent = cohort.label;
   $('mc-label').value = cohort.label;
   $('mc-crumb').setAttribute('href', H.dashboard());
-  $('mc-foundation').value = cohort.foundation || '';
+  $('mc-foundation').textContent = user.provider_name;     // the facilitator's own Foundation
   $('mc-school').value = cohort.school || '';
-  $('mc-foundation').addEventListener('change', () => wpUpdateCohortDetails(pid, cid, { foundation: $('mc-foundation').value }));
   $('mc-school').addEventListener('change', () => wpUpdateCohortDetails(pid, cid, { school: $('mc-school').value }));
   $('mc-label').addEventListener('change', () => {
     wpRenameCohort(pid, cid, $('mc-label').value.trim() || cohort.label);
@@ -748,7 +748,7 @@ async function mirrorCohort(pid, cid) {
   const cohort = wpGetCohort(pid, cid);
   if (!cohort) return;
   const base = ['providers', pid, 'cohorts', cid];
-  await setDoc(doc(db, ...base), { label: cohort.label, foundation: cohort.foundation || '', school: cohort.school || '',
+  await setDoc(doc(db, ...base), { label: cohort.label, foundation: user.provider_name || '', school: cohort.school || '',
     active: true, student_count: cohort.students.length }, { merge: true });
   for (const g of wpGroups(pid, cid)) {
     await setDoc(doc(db, ...base, 'groups', g.id), { label: g.label, size: wpRoster(pid, cid, g.id).length }, { merge: true });
@@ -1467,7 +1467,7 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
   // ── Answering ──
   const st = surveyDraft.get(id) || {
     step: 0, present: size || null, answers: {},
-    foundation: cohort.foundation || '', school: cohort.school || ''
+    school: cohort.school || ''
   };
   const REVIEW = Q.length + 1;
   const counter = (key, value, max) => `<span class="sv-count">
@@ -1479,18 +1479,18 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
   // Show the details as facts unless something's missing or the facilitator
   // asks to change them; likewise "taking part" is the group's size unless
   // someone's absent.
-  let editDetails = !st.foundation.trim() || !st.school.trim();
+  const foundation = user.provider_name || '';     // the facilitator's Foundation (admin console → Foundations)
+  let editDetails = !st.school.trim();
   let absent = st.present !== size;
   function detailsHtml() {
     const fact = (l, v) => `<div class="sv-fact"><span>${l}</span><b>${esc(v)}</b></div>`;
     const details = editDetails
       ? `<div class="sv-details">
-          ${fact('Facilitator', user.display_name)}
-          <label class="field"><span>Foundation</span><input type="text" id="sv-foundation" maxlength="120" value="${esc(st.foundation)}" placeholder="Your Foundation"></label>
+          ${fact('Facilitator', user.display_name)}${fact('Foundation', foundation)}
           <label class="field"><span>School</span><input type="text" id="sv-school" maxlength="120" value="${esc(st.school)}" placeholder="The school’s name"></label>
         </div>`
       : `<div class="sv-details">
-          ${fact('Facilitator', user.display_name)}${fact('Foundation', st.foundation)}${fact('School', st.school)}
+          ${fact('Facilitator', user.display_name)}${fact('Foundation', foundation)}${fact('School', st.school)}
         </div>
         <button class="sv-link" id="sv-edit">Edit details</button>`;
     const taking = absent
@@ -1531,7 +1531,7 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
   function reviewHtml() {
     return `<div class="sv-q">Check the answers</div>
       <ol class="sv-review">
-        <li><span class="q">Facilitator · Foundation · School</span><span class="a">${esc(user.display_name)} · ${esc(st.foundation)} · ${esc(st.school)}</span><button class="btn ghost" data-goto="0">Change</button></li>
+        <li><span class="q">Facilitator · Foundation · School</span><span class="a">${esc(user.display_name)} · ${esc(foundation)} · ${esc(st.school)}</span><button class="btn ghost" data-goto="0">Change</button></li>
         <li><span class="q">Taking part</span><span class="a">${st.present}</span><button class="btn ghost" data-goto="0">Change</button></li>
         ${Q.map((q, i) => `<li><span class="q">${i + 1}. ${esc(q.text)}</span><span class="a">${surveyAnswerHtml(q, st.answers[q.id], st.present)}</span>
           <button class="btn ghost" data-goto="${i + 1}">Change</button></li>`).join('')}
@@ -1539,7 +1539,7 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
   }
   const currentQ = () => (st.step > 0 && st.step < REVIEW ? Q[st.step - 1] : null);
   const canGoOn = () => {
-    if (st.step === 0) return Number.isInteger(st.present) && st.present > 0 && !!st.foundation.trim() && !!st.school.trim();
+    if (st.step === 0) return Number.isInteger(st.present) && st.present > 0 && !!st.school.trim();
     if (st.step === REVIEW) return Q.every(q => answered(q, st.answers[q.id], st.present));
     const q = currentQ();
     return answered(q, st.answers[q.id], st.present);
@@ -1604,10 +1604,9 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
       const k = Number(b.dataset.rest), a = st.answers[q.id] || [];
       put(k, st.present - a.reduce((s, n, i) => s + (i === k ? 0 : (n || 0)), 0));
     }));
-    $('sv-edit')?.addEventListener('click', () => { editDetails = true; paint(); $('sv-foundation')?.focus(); });
+    $('sv-edit')?.addEventListener('click', () => { editDetails = true; paint(); $('sv-school')?.focus(); });
     $('sv-absent')?.addEventListener('click', () => { absent = true; paint(); appEl.querySelector('[data-num="present"]')?.select(); });
     $('sv-everyone')?.addEventListener('click', () => { absent = false; st.present = size; paint(); });
-    $('sv-foundation')?.addEventListener('input', e => { st.foundation = e.target.value; refresh(); });
     $('sv-school')?.addEventListener('input', e => { st.school = e.target.value; refresh(); });
     appEl.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => { st.step = Number(b.dataset.goto); paint(); }));
     refresh();
@@ -1622,16 +1621,16 @@ async function viewSurvey(cid, phase, gParam, { after } = {}) {
       if (q.type === 'text') answers[q.id] = String(a || '').trim().slice(0, q.max || 200);
       else if (Array.isArray(a)) answers[q.id] = a.map(n => Math.min(n || 0, st.present));
     }
-    const foundation = st.foundation.trim().slice(0, 120), school = st.school.trim().slice(0, 120);
+    const school = st.school.trim().slice(0, 120);
     try {
-      // Keep the cohort's Foundation / school for next time (and the admin console).
-      wpUpdateCohortDetails(pid, cid, { foundation, school });
+      // Keep the cohort's school for next time (and the admin console).
+      wpUpdateCohortDetails(pid, cid, { school });
       await mirrorCohort(pid, cid);                 // labels + pseudonymous slots, never names
       const ref = doc(db, 'providers', pid, 'surveys', id);
       const existing = await getDoc(ref);
       if (existing.exists()) { surveyDraft.clear(id); return paintResult(existing.data(), false, 'This group’s survey had already been submitted.'); }
       const data = { cohort_id: cid, group_id: gid, phase, survey_version: SURVEY.version,
-                     facilitator: user.display_name, foundation, school,
+                     facilitator: user.display_name, foundation: foundation.slice(0, 120), school,
                      present: st.present, answers, created_at: serverTimestamp() };
       await setDoc(ref, data);
       surveyDraft.clear(id);
@@ -1900,6 +1899,34 @@ async function loadSessionMedia() {
   } catch (e) { console.warn('[TFT26] session video links unavailable — using the built-in ones', e); }
 }
 await loadSessionMedia();
+
+/**
+ * Live: someone signed in at the black bar as a real FACILITATOR (on the people
+ * list, bound to a Foundation — admin console → Foundations) uses the portal as
+ * themselves, for their own Foundation: no persona sign-in. Admins and guests
+ * keep using the demo personas. Checked on every load, so a change of role or
+ * Foundation takes effect the next time the portal opens.
+ */
+async function adoptRealFacilitator() {
+  if (MODE !== 'live') return;
+  const real = currentUser();
+  if (!real) return;
+  try {
+    const { claims } = await real.getIdTokenResult();
+    const r = await resolveRole(real, claims, async (email) => {
+      const snap = await getDoc(doc(db, 'staff', email));
+      return snap.exists() ? snap.data() : null;
+    });
+    if (r.role === 'facilitator' && r.provider) {
+      const p = await getDoc(doc(db, 'providers', r.provider));
+      wpUseAccount({ email: real.email, display_name: r.name || real.displayName || real.email,
+                     provider_id: r.provider, provider_name: p.exists() ? (p.data().name || r.provider) : r.provider });
+    } else if (wpCurrentUser()?.real) {
+      wpSignOut();                    // a facilitator's session left on this device by someone else
+    }
+  } catch (e) { console.warn('[TFT26] could not check the facilitator account', e); }
+}
+await adoptRealFacilitator();
 
 window.addEventListener('hashchange', route);
 route();

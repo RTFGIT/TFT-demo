@@ -7,8 +7,10 @@
  *   3. What pledges were captured in each run of each session?
  *   4. What are the All-Providers totals per session?
  *   5. How did groups answer the evaluation survey, before and after? (Evaluation)
- * …and lets admins set the session videos every facilitator plays (Session videos)
- * and manage who can use the tool (Users).
+ * …and lets admins set the session videos every facilitator plays (Session videos),
+ * manage who can use the tool (Users), and set up Foundations — the
+ * organisations that deliver the programme — and their facilitators (Foundations).
+ * ("Provider" in the code and database = a Foundation on screen.)
  *
  * ROLES (firestore.rules enforces them; this console only follows suit)
  *   admin    everything, including Session videos
@@ -26,7 +28,7 @@ import {
   initializeApp, getFirestore, getAuth, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, doc, getDoc, getDocs, setDoc, collection, updateDoc, deleteDoc, query, orderBy, where,
   serverTimestamp, inviteAccount, sendPasswordReset, MODE, currentUser } from '../data-layer.js';
-import { resolveRole, ROLES, ROLE_HELP } from '../roles.js';
+import { resolveRole, ROLES, ALL_ROLES, ROLE_HELP } from '../roles.js';
 import { videoEmbed, videoKind, VIDEO_KIND_LABEL } from '../video-embed.js';
 import * as sessionConfig from '../public_widget/session-config.js';
 import { listSessionDocs, versionUrl, projectorPagePath, projectorPageStatus } from '../doc-store.js';
@@ -113,6 +115,7 @@ function enter(label, staff = false) {
   $('ab-nav').classList.remove('hidden');
   document.querySelector('[data-nav="videos"]').classList.toggle('hidden', role !== 'admin');
   document.querySelector('[data-nav="users"]').classList.toggle('hidden', role !== 'admin');
+  document.querySelector('[data-nav="foundations"]').classList.toggle('hidden', role !== 'admin');
   document.body.classList.toggle('read-only', !canChange());
   viewDash();
 }
@@ -126,6 +129,7 @@ if (MODE === 'live') {
   (async () => {
     const real = currentUser();
     role = await roleOfUser(real);
+    if (role === 'facilitator') return leave('The admin console is for Rethink Food staff. Your sessions are in the facilitator portal.');
     if (role === 'none') role = 'guest';             // the gate keeps no-access accounts out
     if (role !== 'guest') return enter(real.displayName || real.email, true);
     let persona = null;
@@ -151,7 +155,7 @@ document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click',
   e.preventDefault();
   const v = a.dataset.nav;
   v === 'docs' ? viewDocs() : v === 'eval' ? viewEval() : v === 'videos' ? viewSessionVideos()
-    : v === 'users' ? viewUsers() : viewDash();
+    : v === 'users' ? viewUsers() : v === 'foundations' ? viewFoundations() : viewDash();
 }));
 function navOn(which) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === which)); }
 
@@ -278,7 +282,7 @@ async function viewProvider(providerId) {
   // than raw ids. These are structural labels only — never a student name.
   const labels = await loadCohortLabels(providerId, runs);
 
-  $('pv-eyebrow').textContent = 'Provider';
+  $('pv-eyebrow').textContent = 'Foundation';
   $('pv-name').textContent    = p.name || providerId;
   $('pv-contact').textContent = priv
     ? `${priv.contact_name} · ${priv.contact_email}`
@@ -450,7 +454,7 @@ async function viewDocs() {
  * group chosen, its two responses are shown side by side. Only responses to the
  * current survey version are compared.
  */
-const evalState = { foundation: '', provider: '', cohort: '', group: '', matched: true };
+const evalState = { provider: '', cohort: '', group: '', matched: true };
 
 /** The providers this admin may see (a demo guest: the demo organisations only). */
 async function listProviders() {
@@ -468,7 +472,7 @@ async function loadSurveys() {
     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     const labels = await loadCohortLabels(p.id, docs);
     docs.forEach(d => rows.push({
-      ...d, provider_id: p.id, provider: p.name || p.id,
+      ...d, provider_id: p.id, provider: p.name || p.id, foundation: p.name || p.id,
       cohort: labels.cohort(d.cohort_id), group: labels.group(d.cohort_id, d.group_id)
     }));
   }));
@@ -556,12 +560,11 @@ async function viewEval() {
   function paint() {
     const s = evalState;
     // ── Filters: Foundation, then organisation → cohort → group ──
-    const inF = current.filter(r => !s.foundation || (r.foundation || '') === s.foundation);
+    const inF = current;
     const inP = inF.filter(r => !s.provider || r.provider_id === s.provider);
     const inC = inP.filter(r => !s.cohort || r.cohort_id === s.cohort);
     const inG = inC.filter(r => !s.group || r.group_id === s.group);
-    $('ev-foundation').innerHTML = opt('', 'All Foundations', !s.foundation) + uniq(current, 'foundation', 'foundation').map(([v, t]) => opt(v, t, v === s.foundation)).join('');
-    $('ev-provider').innerHTML = opt('', 'All organisations', !s.provider) + uniq(inF, 'provider_id', 'provider').map(([v, t]) => opt(v, t, v === s.provider)).join('');
+    $('ev-provider').innerHTML = opt('', 'All Foundations', !s.provider) + uniq(inF, 'provider_id', 'provider').map(([v, t]) => opt(v, t, v === s.provider)).join('');
     $('ev-cohort').innerHTML = opt('', 'All cohorts', !s.cohort) + uniq(inP, 'cohort_id', 'cohort').map(([v, t]) => opt(v, t, v === s.cohort)).join('');
     $('ev-group').innerHTML = opt('', 'All groups', !s.group) + uniq(inC, 'group_id', 'group').map(([v, t]) => opt(v, t, v === s.group)).join('');
     $('ev-cohort').disabled = !s.provider;
@@ -605,7 +608,7 @@ async function viewEval() {
       $('ev-body').innerHTML = `<div class="card">
         <div class="row between" style="flex-wrap:wrap;gap:.5rem">
           <div><strong>${esc(single.provider)} · ${esc(single.cohort)} · ${esc(single.group)}</strong>
-            <div class="muted" style="font-size:.8rem">${[single.foundation, single.school].filter(Boolean).map(esc).join(' · ')}</div></div>
+            <div class="muted" style="font-size:.8rem">${single.school ? esc(single.school) : ''}</div></div>
           <span class="row" style="gap:.3rem">${del(single.baseline, 'baseline')}${del(single.final, 'final')}</span></div>
         <div class="table-scroll" style="margin-top:.7rem"><table class="ev-single">
           <thead><tr><th>Question</th><th>Baseline<br><span class="muted">${who(single.baseline)}</span></th><th>Final<br><span class="muted">${who(single.final)}</span></th><th>Change</th></tr></thead>
@@ -628,7 +631,7 @@ async function viewEval() {
 
     // ── Groups table (click to drill down) ──
     $('ev-groups').innerHTML = list.length ? list.map(g => `<tr class="clickable" data-g="${esc(key(g))}">
-        <td>${esc(g.foundation || '—')}</td><td>${esc(g.provider)}</td><td>${esc(g.school || '—')}</td>
+        <td>${esc(g.provider)}</td><td>${esc(g.school || '—')}</td>
         <td>${esc(g.cohort)} · <strong>${esc(g.group)}</strong></td>
         <td>${g.baseline ? `${when(g.baseline.created_at)} · ${g.baseline.present}` : '<span class="pill none">—</span>'}</td>
         <td>${g.final ? `${when(g.final.created_at)} · ${g.final.present}` : '<span class="pill none">—</span>'}</td>
@@ -641,12 +644,11 @@ async function viewEval() {
     $('ev-export').onclick = () => exportCsv(inG);
   }
 
-  $('ev-foundation').addEventListener('change', e => { Object.assign(evalState, { foundation: e.target.value, provider: '', cohort: '', group: '' }); paint(); });
   $('ev-provider').addEventListener('change', e => { Object.assign(evalState, { provider: e.target.value, cohort: '', group: '' }); paint(); });
   $('ev-cohort').addEventListener('change', e => { Object.assign(evalState, { cohort: e.target.value, group: '' }); paint(); });
   $('ev-group').addEventListener('change', e => { evalState.group = e.target.value; paint(); });
   $('ev-matched').addEventListener('change', e => { evalState.matched = e.target.checked; paint(); });
-  $('ev-reset').addEventListener('click', () => { Object.assign(evalState, { foundation: '', provider: '', cohort: '', group: '' }); paint(); });
+  $('ev-reset').addEventListener('click', () => { Object.assign(evalState, { provider: '', cohort: '', group: '' }); paint(); });
   paint();
 }
 
@@ -660,10 +662,10 @@ function exportCsv(rows) {
   const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   const cell = (v) => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const cols = Q.flatMap(q => q.type === 'text' ? [[q, null, q.id]] : tallyLabels(q).map((l, i) => [q, i, `${q.id}_${slug(l)}`]));
-  const head = ['facilitator', 'foundation', 'school', 'pre_or_post', 'organisation', 'cohort', 'group', 'date',
+  const head = ['facilitator', 'foundation', 'school', 'pre_or_post', 'cohort', 'group', 'date',
                 'survey_version', 'taking_part', ...cols.map(c => c[2])];
   const lines = rows.slice().sort((a, b) => a.provider.localeCompare(b.provider) || a.cohort.localeCompare(b.cohort) || a.group.localeCompare(b.group) || a.phase.localeCompare(b.phase))
-    .map(r => [r.facilitator, r.foundation, r.school, r.phase === 'baseline' ? 'Pre' : 'Post', r.provider, r.cohort, r.group,
+    .map(r => [r.facilitator, r.provider, r.school, r.phase === 'baseline' ? 'Pre' : 'Post', r.cohort, r.group,
       r.created_at?.seconds ? new Date(r.created_at.seconds * 1000).toISOString().slice(0, 10) : '',
       r.survey_version, r.present,
       ...cols.map(([q, i]) => i == null ? (r.answers?.[q.id] ?? '') : (r.answers?.[q.id]?.[i] ?? ''))]);
@@ -790,11 +792,12 @@ async function viewUsers() {
   $('us-role').innerHTML = ROLES.map(r => `<option value="${r}" ${r === 'manager' ? 'selected' : ''}>${ROLE_NAME[r]} — ${ROLE_HELP[r]}</option>`).join('');
   const me = (currentUser()?.email || $('ab-user').textContent || '').toLowerCase();
 
-  let people = [];
+  let people = [], foundationNames = {};
   async function load() {
     const snap = await getDocs(collection(db, 'staff'));
     people = snap.docs.map(d => d.data()).sort((a, b) =>
-      (b.active === true) - (a.active === true) || ROLES.indexOf(a.role) - ROLES.indexOf(b.role) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
+      (b.active === true) - (a.active === true) || ALL_ROLES.indexOf(a.role) - ALL_ROLES.indexOf(b.role) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
+    foundationNames = await foundationNameMap().catch(() => ({}));
   }
   const flash = (text, kind = 'ok') => { const m = $('us-msg'); m.textContent = text; m.className = 'us-msg ' + kind; };
 
@@ -805,8 +808,10 @@ async function viewUsers() {
       const self = p.email === me;
       return `<tr class="${p.active ? '' : 'off'}">
         <td><strong>${esc(p.name || '—')}</strong>${self ? ' <span class="pill none">You</span>' : ''}<div class="muted us-email">${esc(p.email)}</div></td>
-        <td><select data-role="${esc(p.email)}" ${self ? 'disabled title="You can’t change your own role"' : ''} aria-label="Role for ${esc(p.email)}">
-          ${ROLES.map(r => `<option value="${r}" ${r === p.role ? 'selected' : ''}>${ROLE_NAME[r]}</option>`).join('')}</select></td>
+        <td>${p.role === 'facilitator'
+          ? `Facilitator<div class="muted us-email"><a href="#" data-foundation="${esc(p.provider)}">${esc(foundationNames[p.provider] || p.provider)}</a></div>`
+          : `<select data-role="${esc(p.email)}" ${self ? 'disabled title="You can’t change your own role"' : ''} aria-label="Role for ${esc(p.email)}">
+          ${ROLES.map(r => `<option value="${r}" ${r === p.role ? 'selected' : ''}>${ROLE_NAME[r]}</option>`).join('')}</select>`}</td>
         <td>${p.active ? '<span class="pill ok">On</span>' : '<span class="pill none">Off</span>'}</td>
         <td class="muted us-when">${p.added_at ? when(p.added_at) : '—'}${p.added_by ? '<br>by ' + esc(p.added_by) : ''}</td>
         <td class="us-acts">${self ? '' : `
@@ -836,6 +841,7 @@ async function viewUsers() {
       }
       await save(p, { active: !p.active }, p.active ? `${p.name || p.email} is switched off.` : `${p.name || p.email} is switched back on.`);
     }));
+    appEl.querySelectorAll('[data-foundation]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); viewFoundation(a.dataset.foundation); }));
     appEl.querySelectorAll('[data-resend]').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true;
       try { await sendPasswordReset(b.dataset.resend); flash(`Sent a new set-password link to ${b.dataset.resend}.`); }
@@ -886,4 +892,170 @@ async function viewUsers() {
 
   try { await load(); } catch (e) { console.error(e); $('us-list').innerHTML = '<tr><td colspan="5"><div class="empty">Couldn’t load the list.</div></td></tr>'; return; }
   paint();
+}
+
+// ─── Foundations — the organisations, and their facilitators (admins only) ───
+/**
+ * A Foundation is an organisation that delivers the programme (stored as
+ * providers/{id}, with its contact on providers_private/{id}). Its facilitators
+ * are people-list entries with the role facilitator and that Foundation's id;
+ * firestore.rules lets each act only for their own Foundation. Adding one emails
+ * them a set-password link, like the Users page. Young people's names never
+ * come here: they stay with the facilitator (WordPress).
+ */
+const slugify = (s) => String(s).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'foundation';
+
+/** id → Foundation name, for labelling facilitators. */
+async function foundationNameMap() {
+  const providers = await listProviders();
+  return Object.fromEntries(providers.map(p => [p.id, p.name || p.id]));
+}
+
+async function viewFoundations() {
+  render('v-foundations');
+  navOn('foundations');
+  if (role !== 'admin') { $('fd-body').innerHTML = '<div class="empty">Only admins can manage Foundations.</div>'; return; }
+  const flash = (text, kind = 'ok') => { const m = $('fd-msg'); m.textContent = text; m.className = 'us-msg ' + kind; };
+  let providers = [], staff = [];
+  try {
+    [providers, staff] = await Promise.all([
+      listProviders(),
+      getDocs(collection(db, 'staff')).then(s => s.docs.map(d => d.data()))
+    ]);
+  } catch (e) { console.error(e); $('fd-list').innerHTML = '<div class="empty">Couldn’t load the Foundations.</div>'; return; }
+  if (!$('fd-list')) return;
+  providers.sort((a, b) => (a.demo === true) - (b.demo === true) || String(a.name).localeCompare(String(b.name)));
+  const facs = (id) => staff.filter(p => p.role === 'facilitator' && p.provider === id);
+  $('fd-list').innerHTML = providers.map(p => {
+    const f = facs(p.id), on = f.filter(x => x.active).length;
+    const pledges = Object.values(p.session_stats || {}).reduce((a, s) => a + (s.pledges || 0), 0);
+    return `<button class="card fd-card" data-open="${esc(p.id)}">
+      <div class="fd-name">${esc(p.name || p.id)} ${p.demo ? '<span class="pill none">Demo</span>' : ''}</div>
+      <div class="muted fd-meta">${on} facilitator${on === 1 ? '' : 's'}${f.length > on ? ` (+${f.length - on} off)` : ''} · ${pledges} pledge${pledges === 1 ? '' : 's'}</div>
+    </button>`;
+  }).join('') || '<div class="empty">No Foundations yet.</div>';
+  appEl.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => viewFoundation(b.dataset.open)));
+
+  $('fd-add').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('fd-name').value.trim().slice(0, 80), contact = $('fd-contact').value.trim().slice(0, 80);
+    const email = $('fd-email').value.trim().toLowerCase();
+    if (!name) return flash('Enter the Foundation’s name.', 'bad');
+    if (email && !EMAIL_RE.test(email)) return flash('That contact email doesn’t look right.', 'bad');
+    if (providers.some(p => String(p.name).toLowerCase() === name.toLowerCase())) return flash(`There’s already a Foundation called ${name}.`, 'bad');
+    // Its id: from the name, never "demo-…" (reserved for the demo), never a clash.
+    let id = slugify(name).replace(/^demo-/, '');
+    for (let n = 2; providers.some(p => p.id === id); n++) id = `${slugify(name).replace(/^demo-/, '')}-${n}`;
+    const btn = $('fd-go'); btn.disabled = true;
+    try {
+      const zero = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => ['s' + n, { runs: 0, pledges: 0, last_run_at: null }]));
+      await setDoc(doc(db, 'providers', id), { name, active: true, max_students: 96, demo: false, session_stats: zero,
+        created_at: serverTimestamp(), updated_at: serverTimestamp() });
+      await setDoc(doc(db, 'providers_private', id), { contact_name: contact, contact_email: email, registered_at: serverTimestamp(), demo: false });
+      viewFoundation(id, `${name} created. Now add its facilitators.`);
+    } catch (err) {
+      console.error('[TFT26] could not create the Foundation', err);
+      flash('Couldn’t create the Foundation.', 'bad'); btn.disabled = false;
+    }
+  });
+}
+
+async function viewFoundation(id, note) {
+  render('v-foundation');
+  navOn('foundations');
+  $('fv-back').addEventListener('click', e => { e.preventDefault(); viewFoundations(); });
+  if (role !== 'admin') { $('fv-body').innerHTML = '<div class="empty">Only admins can manage Foundations.</div>'; return; }
+  const me = (currentUser()?.email || $('ab-user').textContent || '').toLowerCase();
+  const flash = (text, kind = 'ok') => { const m = $('fv-msg'); m.textContent = text; m.className = 'us-msg ' + kind; };
+  let p, priv, people;
+  async function load() {
+    const [pSnap, privSnap, staffSnap] = await Promise.all([
+      getDoc(doc(db, 'providers', id)), getDoc(doc(db, 'providers_private', id)),
+      getDocs(collection(db, 'staff'))
+    ]);
+    p = pSnap.exists() ? pSnap.data() : null;
+    priv = privSnap.exists() ? privSnap.data() : {};
+    people = staffSnap.docs.map(d => d.data()).filter(x => x.role === 'facilitator' && x.provider === id)
+      .sort((a, b) => (b.active === true) - (a.active === true) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
+  }
+  try { await load(); } catch (e) { console.error(e); $('fv-body').innerHTML = '<div class="empty">Couldn’t load this Foundation.</div>'; return; }
+  if (!$('fv-body')) return;
+  if (!p) { $('fv-body').innerHTML = '<div class="empty">That Foundation doesn’t exist.</div>'; return; }
+
+  $('fv-title').textContent = p.name || id;
+  $('fv-demo').classList.toggle('hidden', p.demo !== true);
+  $('fv-name').value = p.name || '';
+  $('fv-contact').value = priv.contact_name || '';
+  $('fv-email').value = priv.contact_email || '';
+  if (note) flash(note);
+
+  $('fv-save').addEventListener('click', async () => {
+    const name = $('fv-name').value.trim().slice(0, 80), contact = $('fv-contact').value.trim().slice(0, 80);
+    const email = $('fv-email').value.trim().toLowerCase();
+    if (!name) return flash('The Foundation needs a name.', 'bad');
+    if (email && !EMAIL_RE.test(email)) return flash('That contact email doesn’t look right.', 'bad');
+    try {
+      await setDoc(doc(db, 'providers', id), { name, updated_at: serverTimestamp() }, { merge: true });
+      await setDoc(doc(db, 'providers_private', id), { contact_name: contact, contact_email: email }, { merge: true });
+      $('fv-title').textContent = name; flash('Saved.');
+    } catch (e) { console.error(e); flash('Couldn’t save the changes.', 'bad'); }
+  });
+
+  function paint() {
+    $('fv-count').textContent = `${people.filter(x => x.active).length} active`;
+    $('fv-list').innerHTML = people.length ? people.map(x => `<tr class="${x.active ? '' : 'off'}">
+        <td><strong>${esc(x.name || '—')}</strong><div class="muted us-email">${esc(x.email)}</div></td>
+        <td>${x.active ? '<span class="pill ok">On</span>' : '<span class="pill none">Off</span>'}</td>
+        <td class="muted us-when">${x.added_at ? when(x.added_at) : '—'}${x.added_by ? '<br>by ' + esc(x.added_by) : ''}</td>
+        <td class="us-acts">
+          <button class="btn ghost" data-resend="${esc(x.email)}" ${x.active ? '' : 'disabled'}>Resend link</button>
+          <button class="btn ${x.active ? 'ghost danger-text' : 'secondary'}" data-toggle="${esc(x.email)}">${x.active ? 'Switch off' : 'Switch on'}</button></td>
+      </tr>`).join('') : '<tr><td colspan="4"><div class="empty">No facilitators yet.</div></td></tr>';
+    appEl.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
+      const x = people.find(y => y.email === b.dataset.toggle);
+      if (x.active && await askConfirm({ title: `Switch off ${x.name || x.email}?`,
+          body: 'They won’t be able to sign in or see anything. You can switch them back on at any time.',
+          confirm: 'Switch off', danger: true }) !== 'confirm') return;
+      try {
+        await setDoc(doc(db, 'staff', x.email), { ...x, active: !x.active, updated_by: me, updated_at: serverTimestamp() });
+        await load(); paint(); flash(x.active ? `${x.name || x.email} is switched off.` : `${x.name || x.email} is switched back on.`);
+      } catch (e) { console.error(e); flash('Couldn’t save that change.', 'bad'); }
+    }));
+    appEl.querySelectorAll('[data-resend]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await sendPasswordReset(b.dataset.resend); flash(`Sent a new set-password link to ${b.dataset.resend}.`); }
+      catch (e) { console.error(e); flash('Couldn’t send the link. Try again in a minute.', 'bad'); }
+      b.disabled = false;
+    }));
+  }
+  paint();
+
+  $('fv-add').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = $('fv-new-email').value.trim().toLowerCase(), name = $('fv-new-name').value.trim().slice(0, 80);
+    if (!EMAIL_RE.test(email)) return flash('Enter a valid email address.', 'bad');
+    if (!name) return flash('Enter their name.', 'bad');
+    if (email === me) return flash('That’s you.', 'bad');
+    const existing = (await getDoc(doc(db, 'staff', email))).data();
+    if (existing) {
+      return flash(existing.role === 'facilitator' && existing.provider === id
+        ? `${email} is already a facilitator here.`
+        : `${email} is already on the people list (${existing.role}). Change them on the Users page.`, 'bad');
+    }
+    const btn = $('fv-go'); btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      await setDoc(doc(db, 'staff', email), { email, name, role: 'facilitator', provider: id, active: true, added_by: me, added_at: serverTimestamp() });
+      const { created } = await inviteAccount(email);
+      $('fv-add').reset();
+      await load(); paint();
+      flash(created ? `Added ${name}. They’ve been emailed a link to set their password.`
+                    : `${name} already had an account — they’re now a facilitator here, and have been emailed a link to set their password.`);
+    } catch (err) {
+      console.error('[TFT26] could not add the facilitator', err);
+      flash(err?.code?.startsWith?.('auth/') ? 'They’re on the list, but the email couldn’t be sent. Use “Resend link”.'
+          : 'Couldn’t add them. Check the details and try again.', 'bad');
+      await load().catch(() => {}); paint();
+    }
+    btn.disabled = false; btn.textContent = 'Add and email invite';
+  });
 }

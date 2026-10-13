@@ -74,6 +74,14 @@
   .role-pill.admin { background:#f3f3f0; color:#111; }
   .role-pill.manager { background:#fef3c7; color:#92400e; }
   .role-pill.guest { background:#1e293b; color:#cbd5e1; border:1px solid #334155; }
+  /* Foundations */
+  .fd-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:.7rem; margin-top:1rem; }
+  .fd-card { text-align:left; cursor:pointer; font:inherit; color:inherit; display:flex; flex-direction:column; gap:.25rem; }
+  .fd-card:hover { border-color:var(--accent); }
+  .fd-name { font-weight:800; }
+  .fd-meta { font-size:.8rem; }
+  .fv-grid { grid-template-columns:1.2fr 1.4fr auto; align-items:end; }
+  @media (max-width:760px){ .fv-grid { grid-template-columns:1fr; } }
   /* Users */
   .us-add { display:flex; flex-direction:column; gap:.7rem; }
   .us-grid { display:grid; grid-template-columns:1.4fr 1.2fr 1.4fr; gap:.7rem; }
@@ -162,6 +170,7 @@
     <a href="#" data-nav="eval">Evaluation</a>
     <a href="#" data-nav="docs">Session documents</a>
     <a href="#" data-nav="videos" class="hidden">Session videos</a>
+    <a href="#" data-nav="foundations" class="hidden">Foundations</a>
     <a href="#" data-nav="users" class="hidden">Users</a>
   </nav>
   <span class="spacer"></span>
@@ -198,8 +207,7 @@
       <p class="sub">Each group answers the survey by a show of hands: a baseline before its first session and a final after its sixth. <span id="ev-version"></span></p>
     </header>
     <div class="ev-filters">
-      <select id="ev-foundation" aria-label="Foundation"></select>
-      <select id="ev-provider" aria-label="Organisation"></select>
+      <select id="ev-provider" aria-label="Foundation"></select>
       <select id="ev-cohort" aria-label="Cohort"></select>
       <select id="ev-group" aria-label="Group"></select>
       <button class="btn ghost" id="ev-reset">Clear</button>
@@ -211,10 +219,68 @@
     <div id="ev-body"><div class="empty">Loading…</div></div>
     <h2 class="section">Groups</h2>
     <div class="table-scroll"><table>
-      <thead><tr><th>Foundation</th><th>Organisation</th><th>School</th><th>Cohort · group</th><th>Baseline · taking part</th><th>Final · taking part</th></tr></thead>
+      <thead><tr><th>Foundation</th><th>School</th><th>Cohort · group</th><th>Baseline · taking part</th><th>Final · taking part</th></tr></thead>
       <tbody id="ev-groups"></tbody>
     </table></div>
     <p class="muted" style="font-size:.78rem;margin-top:.6rem">Select a group to see its answers. Responses are per group; nothing identifies an individual.</p>
+  </div>
+</template>
+
+<template id="v-foundations">
+  <div class="wrap">
+    <header class="page">
+      <div class="eyebrow">Programme · admins only</div>
+      <h1>Foundations</h1>
+      <p class="sub">The organisations that deliver Try for Tomorrow, and their facilitators.</p>
+    </header>
+    <div id="fd-body">
+      <form class="card us-add" id="fd-add" novalidate>
+        <strong>Add a Foundation</strong>
+        <div class="us-grid">
+          <label class="field"><span>Name</span><input type="text" id="fd-name" maxlength="80" autocomplete="off" placeholder="e.g. Northvale RL Foundation"></label>
+          <label class="field"><span>Contact name</span><input type="text" id="fd-contact" maxlength="80" autocomplete="off" placeholder="Optional"></label>
+          <label class="field"><span>Contact email</span><input type="email" id="fd-email" autocomplete="off" placeholder="Optional"></label>
+        </div>
+        <div class="us-foot"><span class="muted">You’ll add its facilitators next.</span><button class="btn" id="fd-go" type="submit">Create Foundation</button></div>
+      </form>
+      <div class="us-msg" id="fd-msg" role="status"></div>
+      <div class="fd-grid" id="fd-list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</template>
+
+<template id="v-foundation">
+  <div class="wrap">
+    <div class="crumb"><a href="#" id="fv-back">← All Foundations</a></div>
+    <header class="page">
+      <div class="eyebrow">Foundation <span class="pill none hidden" id="fv-demo">Demo</span></div>
+      <h1 id="fv-title">Foundation</h1>
+    </header>
+    <div id="fv-body">
+      <div class="card us-add">
+        <strong>Details</strong>
+        <div class="us-grid">
+          <label class="field"><span>Name</span><input type="text" id="fv-name" maxlength="80" autocomplete="off"></label>
+          <label class="field"><span>Contact name</span><input type="text" id="fv-contact" maxlength="80" autocomplete="off"></label>
+          <label class="field"><span>Contact email</span><input type="email" id="fv-email" autocomplete="off"></label>
+        </div>
+        <div class="us-foot"><span class="muted">The contact is seen by Rethink Food admins and managers only.</span><button class="btn secondary" id="fv-save" type="button">Save details</button></div>
+      </div>
+      <div class="us-msg" id="fv-msg" role="status"></div>
+      <div class="row between" style="margin:1.2rem 0 .5rem"><h2 class="section" style="margin:0">Facilitators</h2><span class="muted" id="fv-count" style="font-size:.82rem"></span></div>
+      <form class="card us-add" id="fv-add" novalidate>
+        <div class="us-grid fv-grid">
+          <label class="field"><span>Name</span><input type="text" id="fv-new-name" maxlength="80" autocomplete="off" placeholder="Their full name"></label>
+          <label class="field"><span>Email</span><input type="email" id="fv-new-email" autocomplete="off" placeholder="name@foundation.org"></label>
+          <button class="btn" id="fv-go" type="submit">Add and email invite</button>
+        </div>
+        <span class="muted" style="font-size:.82rem">They can sign in once they’ve set their password from the link, and see only this Foundation.</span>
+      </form>
+      <div class="table-scroll" style="margin-top:.7rem"><table class="us-table">
+        <thead><tr><th>Facilitator</th><th>Status</th><th>Added</th><th></th></tr></thead>
+        <tbody id="fv-list"></tbody>
+      </table></div>
+    </div>
   </div>
 </template>
 
@@ -248,7 +314,7 @@
       <p class="muted" style="font-size:.78rem;margin-top:.6rem">
         <strong>Admin</strong> — everything, including Session videos and Users ·
         <strong>Manager</strong> — sees everything, changes nothing ·
-        <strong>Guest</strong> — the shared demo only. You can’t change your own entry.
+        <strong>Guest</strong> — the shared demo only. Facilitators are added on the Foundations page. You can’t change your own entry.
       </p>
     </div>
   </div>
@@ -289,9 +355,9 @@
   <div class="wrap">
     <header class="page">
       <div class="eyebrow">Programme overview</div>
-      <h1>All Providers</h1>
+      <h1>All Foundations</h1>
     </header>
-    <h2 class="section">All-provider totals by session</h2>
+    <h2 class="section">Totals by session, all Foundations</h2>
     <div class="totals-grid" id="da-totals"></div>
     <h2 class="section">Pledges by option</h2>
     <div class="card">
@@ -299,24 +365,24 @@
       <div class="os-head" id="da-opt-title"></div>
       <div id="da-options"><div class="muted" style="font-size:.85rem">Loading…</div></div>
     </div>
-    <h2 class="section">Providers</h2>
+    <h2 class="section">Foundations</h2>
     <div class="table-scroll"><table>
       <thead><tr>
-        <th>Provider</th><th class="sess-cell">S1</th><th class="sess-cell">S2</th>
+        <th>Foundation</th><th class="sess-cell">S1</th><th class="sess-cell">S2</th>
         <th class="sess-cell">S3</th><th class="sess-cell">S4</th><th class="sess-cell">S5</th>
         <th class="sess-cell">S6</th><th class="sess-cell">Pledges</th>
       </tr></thead>
       <tbody id="da-providers"></tbody>
     </table></div>
     <p class="muted" style="font-size:.78rem;margin-top:.6rem">
-      Deliveries per session. Select a provider for detail.
+      Deliveries per session. Select a Foundation for detail.
     </p>
   </div>
 </template>
 
 <template id="v-provider">
   <div class="wrap">
-    <div class="crumb"><a href="#" id="pv-back">← All providers</a></div>
+    <div class="crumb"><a href="#" id="pv-back">← All Foundations</a></div>
     <header class="page">
       <div class="eyebrow" id="pv-eyebrow"></div>
       <h1 id="pv-name"></h1>
@@ -329,7 +395,7 @@
 
 <template id="v-run">
   <div class="wrap">
-    <div class="crumb"><a href="#" id="rv-back">← Provider</a></div>
+    <div class="crumb"><a href="#" id="rv-back">← Foundation</a></div>
     <header class="page">
       <div class="eyebrow" id="rv-eyebrow"></div>
       <h1 id="rv-title"></h1>

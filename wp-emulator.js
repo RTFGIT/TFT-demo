@@ -66,8 +66,8 @@ export const WP_ROUTES = {
 
 // ─── Seed ────────────────────────────────────────────────────────────────────
 const WP_USERS = [
-  { email: 'alex@democollege.ac.uk', password: 'tftdemo', display_name: 'Alex Facilitator', provider_id: 'demo-college', provider_name: 'Demo College' },
-  { email: 'sam@demoacademy.ac.uk',  password: 'tftdemo', display_name: 'Sam Coordinator',  provider_id: 'demo-academy', provider_name: 'Demo Academy' }
+  { email: 'alex@democollege.ac.uk', password: 'tftdemo', display_name: 'Alex Facilitator', provider_id: 'demo-college', provider_name: 'Northvale RL Foundation' },
+  { email: 'sam@demoacademy.ac.uk',  password: 'tftdemo', display_name: 'Sam Coordinator',  provider_id: 'demo-academy', provider_name: 'Eastbrook Community Foundation' }
 ];
 
 (function seed() {
@@ -112,12 +112,27 @@ export function wpSignIn(email, password) {
   localStorage.setItem(LS_WP_AUTH, u.email);
   return publicUser(u);
 }
+/**
+ * A REAL facilitator (an account on the people list, bound to one Foundation —
+ * admin console → Foundations) uses the portal as themselves, not as a demo
+ * persona. The portal records who they are here; their rosters live on this
+ * device, keyed by their Foundation, just like a persona's.
+ */
+const LS_WP_ACCOUNT = 'tft26_wp_account_v1';
+export function wpUseAccount({ email, display_name, provider_id, provider_name }) {
+  localStorage.setItem(LS_WP_ACCOUNT, JSON.stringify({ email, display_name, provider_id, provider_name, real: true }));
+  localStorage.removeItem(LS_WP_AUTH);
+}
 export function wpCurrentUser() {
+  try {
+    const acct = JSON.parse(localStorage.getItem(LS_WP_ACCOUNT) || 'null');
+    if (acct?.provider_id) return acct;
+  } catch {}
   const email = localStorage.getItem(LS_WP_AUTH);
   const u = email && WP_USERS.find(x => x.email === email);
   return u ? publicUser(u) : null;
 }
-export function wpSignOut() { localStorage.removeItem(LS_WP_AUTH); }
+export function wpSignOut() { localStorage.removeItem(LS_WP_AUTH); localStorage.removeItem(LS_WP_ACCOUNT); }
 export function wpAccounts() { return WP_USERS.map(u => ({ email: u.email, password: u.password, provider: u.provider_name, display_name: u.display_name })); }
 function publicUser(u) {
   return { email: u.email, display_name: u.display_name, provider_id: u.provider_id, provider_name: u.provider_name };

@@ -26,7 +26,7 @@ import { SESSIONS } from './public_widget/session-config.js';
 import { SURVEY, surveyId, tallyLabels } from './public_widget/survey-config.js';
 
 /** Bump when the generated programme changes, so stored seeds refresh. */
-export const DEMO_SEED_VERSION = 6;
+export const DEMO_SEED_VERSION = 7;
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 /** 32-bit FNV-1a with a murmur3 finaliser (good avalanche, tiny). */
@@ -144,7 +144,7 @@ const OWN_IDEAS = {
 // Runs with weeks <= 1 (i.e. within the last fortnight) are "recent" and still
 // have some pledges awaiting moderation.
 const PLAN = [
-  { id: 'demo-college', name: 'Demo College', login: true, foundation: 'Northvale RL Foundation',
+  { id: 'demo-college', name: 'Northvale RL Foundation', school: 'Demo College', login: true,
     contact_name: 'Alex Facilitator', contact_email: 'lead@democollege.ac.uk',
     cohorts: [
       { id: 'year9-rugby', label: 'Year 9 Rugby', groups: [
@@ -167,7 +167,7 @@ const PLAN = [
         { id: 'g1', label: 'Group A', size: 13, day: 2, weeks: [2, 1, 'open'] },
         { id: 'g2', label: 'Group B', size: 12, day: 4, weeks: [2, 1, 0] }] }
     ] },
-  { id: 'demo-academy', name: 'Demo Academy', login: true, foundation: 'Eastbrook Community Foundation',
+  { id: 'demo-academy', name: 'Eastbrook Community Foundation', school: 'Demo Academy', login: true,
     contact_name: 'Sam Coordinator', contact_email: 'programme@demoacademy.ac.uk',
     cohorts: [
       { id: 'year7-healthy-futures', label: 'Year 7 Healthy Futures', groups: [
@@ -176,7 +176,7 @@ const PLAN = [
       { id: 'year10-sports-leaders', label: 'Year 10 Sports Leaders', groups: [
         { id: 'g1', label: 'Group 1', size: 14, day: 3, weeks: [6, 5, 4, 2, 1] }] }
     ] },
-  { id: 'demo-northfield', name: 'Northfield Academy', login: false, foundation: 'Northvale RL Foundation',
+  { id: 'demo-northfield', name: 'Northfield Sports Foundation', school: 'Northfield Academy', login: false,
     contact_name: 'Jordan Blake', contact_email: 'pe.department@northfield-academy.example',
     cohorts: [
       { id: 'year9-pe', label: 'Year 9 PE', groups: [
@@ -187,13 +187,13 @@ const PLAN = [
         { id: 'g1', label: 'Boys',  sex: 'm', size: 12, day: 2, weeks: [17, 16, 15, 14, 13, 12] },
         { id: 'g2', label: 'Girls', sex: 'f', size: 11, day: 3, weeks: [17, 16, 15, 14, 13, 12] }] }
     ] },
-  { id: 'demo-riverside', name: 'Riverside Juniors RLFC', login: false, foundation: 'Riverside RL Foundation',
+  { id: 'demo-riverside', name: 'Riverside RL Foundation', school: 'Riverside Juniors RLFC', login: false,
     contact_name: 'Chris Walker', contact_email: 'juniors@riverside-rlfc.example',
     cohorts: [
       { id: 'u12s', label: 'U12s', school: 'Riverside Primary School', groups: [
         { id: 'g1', label: 'Group 1', size: 12, day: 4, weeks: [9, 8, 7, 6, 5, 4] }] }
     ] },
-  { id: 'demo-hillcrest', name: 'Hillcrest Primary School', login: false, foundation: 'Eastbrook Community Foundation',
+  { id: 'demo-hillcrest', name: 'Hillcrest Community Foundation', school: 'Hillcrest Primary School', login: false,
     contact_name: 'Rachel Okafor', contact_email: 'office@hillcrest-primary.example',
     cohorts: [
       { id: 'year6', label: 'Year 6', groups: [
@@ -203,7 +203,7 @@ const PLAN = [
         { id: 'g1', label: 'Group A', size: 12, day: 3, weeks: [14, 13, 12, 11, 10, 9] },
         { id: 'g2', label: 'Group B', size: 11, day: 4, weeks: [14, 13, 12, 11, 10, 9] }] }
     ] },
-  { id: 'demo-westgate', name: 'Westgate Community Trust', login: false, foundation: 'Riverside RL Foundation',
+  { id: 'demo-westgate', name: 'Westgate Community Trust', school: 'Westgate Academy', login: false,
     contact_name: 'Dan Hughes', contact_email: 'schools@westgate-trust.example',
     cohorts: [
       { id: 'girls-academy-squad', label: 'Girls’ Academy Squad', school: 'Westgate Academy', groups: [
@@ -366,7 +366,7 @@ export function buildDemoProgramme(nowSecs) {
         const offsets = Object.fromEntries(SURVEY.questions.map(q => [q.id, (srng() - 0.5) * 0.3]));
         const first = Math.min(...gRuns.map(r => r.started_at));
         const base = { cohort_id: c.id, group_id: g.id, survey_version: SURVEY.version,
-                       facilitator: plan.contact_name, foundation: plan.foundation, school: c.school || plan.name };
+                       facilitator: plan.contact_name, foundation: plan.name, school: c.school || plan.school };
         surveys.push({ id: surveyId(c.id, g.id, 'baseline'), ...base, phase: 'baseline',
           ...surveyResponse(srng, 'baseline', level, offsets, size),
           created_at: first - intBetween(srng, 1, 2) * MIN });
@@ -388,8 +388,8 @@ export function buildDemoProgramme(nowSecs) {
       cohorts.push({
         cohort_id: c.id,
         label: c.label,
-        foundation: plan.foundation,
-        school: c.school || plan.name,
+        foundation: plan.name,
+        school: c.school || plan.school,
         created_at,
         groups: c.groups.map(g => ({ id: g.id, label: g.label })),
         students

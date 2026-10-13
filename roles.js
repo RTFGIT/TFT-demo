@@ -10,25 +10,32 @@
  *   2. Not on the list? Their custom claims (seed and test accounts, and
  *      anyone added before the list existed).
  *
- *   admin    everything, including Session videos and Users
- *   manager  read-only: sees everything, changes nothing
- *   guest    the shared demo, on the demo organisations
+ *   admin        everything, including Session videos, Users and Foundations
+ *   manager      read-only: sees everything, changes nothing
+ *   guest        the shared demo, on the demo organisations
+ *   facilitator  delivers sessions for ONE Foundation (named on their entry);
+ *                added on the admin console's Foundations page
  */
+/** The roles chosen on the Users page (facilitators are added per Foundation). */
 export const ROLES = ['admin', 'manager', 'guest'];
-export const ROLE_LABEL = { admin: 'Admin', manager: 'Manager · read-only', guest: 'Guest', none: 'No access' };
+export const ALL_ROLES = [...ROLES, 'facilitator'];
+export const ROLE_LABEL = { admin: 'Admin', manager: 'Manager · read-only', guest: 'Guest', facilitator: 'Facilitator', none: 'No access' };
 export const ROLE_HELP = {
-  admin: 'Everything, including Session videos and Users',
+  admin: 'Everything, including Session videos, Users and Foundations',
   manager: 'Sees everything, changes nothing',
-  guest: 'The shared demo only'
+  guest: 'The shared demo only',
+  facilitator: 'Delivers sessions for their Foundation'
 };
 
 export function claimRole(claims = {}) {
-  return claims.admin === true ? 'admin' : claims.manager === true ? 'manager' : claims.demo === true ? 'guest' : 'none';
+  return claims.admin === true ? 'admin' : claims.manager === true ? 'manager' : claims.demo === true ? 'guest'
+       : typeof claims.provider === 'string' ? 'facilitator' : 'none';
 }
 
 /**
  * The signed-in person's role. `readEntry(email)` returns their staff/{email}
- * entry (or null). Resolves { role, reason } — reason says why there's no
+ * entry (or null). Resolves { role, reason, provider, name } — provider is a
+ * facilitator's Foundation id; reason says why there's no
  * access: 'off' (switched off), 'unverified' (hasn't set their password from
  * the link yet), or 'no-role'.
  */
@@ -39,10 +46,11 @@ export async function resolveRole(user, claims, readEntry) {
   if (entry) {
     if (entry.active !== true) return { role: 'none', reason: 'off' };
     if (!user.emailVerified) return { role: 'none', reason: 'unverified' };
-    return { role: ROLES.includes(entry.role) ? entry.role : 'none', reason: '' };
+    const role = ALL_ROLES.includes(entry.role) ? entry.role : 'none';
+    return { role, reason: '', provider: role === 'facilitator' ? entry.provider : null, name: entry.name || '' };
   }
   const role = claimRole(claims);
-  return { role, reason: role === 'none' ? 'no-role' : '' };
+  return { role, reason: role === 'none' ? 'no-role' : '', provider: role === 'facilitator' ? claims.provider : null, name: '' };
 }
 
 /** What to tell someone who signed in but can't get in. */
