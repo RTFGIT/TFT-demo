@@ -26,7 +26,7 @@ import { SESSIONS } from './public_widget/session-config.js';
 import { SURVEY, surveyId, tallyLabels } from './public_widget/survey-config.js';
 
 /** Bump when the generated programme changes, so stored seeds refresh. */
-export const DEMO_SEED_VERSION = 7;
+export const DEMO_SEED_VERSION = 8;
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 /** 32-bit FNV-1a with a murmur3 finaliser (good avalanche, tiny). */
@@ -253,6 +253,14 @@ function surveyResponse(rng, phase, level, offsets, size) {
   return { present, answers };
 }
 
+/**
+ * Each demo Foundation's facilitator (its contact). Alex and Sam are the
+ * facilitator portal's demo personas (wp-emulator.js), so their emails match
+ * those logins; the others are fictional and never sign in. On the people list
+ * they're marked demo, so the admin console shows who delivers for whom.
+ */
+const PERSONA_EMAIL = { 'demo-college': 'alex@democollege.ac.uk', 'demo-academy': 'sam@demoacademy.ac.uk' };
+
 /** Session start times, minutes after 00:00 UTC (≈ 09:50–14:15 UK summer time). */
 const START_SLOTS = [530, 580, 645, 695, 795];
 const DAY = 86400;
@@ -415,7 +423,8 @@ export function buildDemoProgramme(nowSecs) {
       contact_name: plan.contact_name, contact_email: plan.contact_email,
       login: plan.login,
       created_at, updated_at,
-      cohorts, runs, surveys, session_stats
+      cohorts, runs, surveys, session_stats,
+      facilitators: [{ email: PERSONA_EMAIL[plan.id] || plan.contact_email, name: plan.contact_name, persona: !!PERSONA_EMAIL[plan.id] }]
     };
   });
 

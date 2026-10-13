@@ -358,6 +358,13 @@ export function onAuthStateChanged(auth, cb) {
       }
     }
 
+    // The Foundation's demo facilitator on the people list (marked demo), so the
+    // admin console's Foundations page shows who delivers for it.
+    for (const f of p.facilitators || []) {
+      store['staff/' + f.email] = { email: f.email, name: f.name, role: 'facilitator', provider: p.id, active: true, demo: true,
+        added_by: 'demo seed', added_at: ts(p.created_at) };
+    }
+
     // Group surveys (baseline / final) — one per group per phase, no individuals.
     for (const sv of p.surveys || []) {
       store[base + '/surveys/' + sv.id] = {

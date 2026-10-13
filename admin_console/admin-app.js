@@ -287,6 +287,8 @@ async function viewProvider(providerId) {
   $('pv-contact').textContent = priv
     ? `${priv.contact_name} · ${priv.contact_email}`
     : 'No contact on record';
+  $('pv-manage').classList.toggle('hidden', role !== 'admin');
+  $('pv-manage').onclick = (e) => { e.preventDefault(); viewFoundation(providerId); };
 
   const st = p.session_stats || {};
   $('pv-sessions').innerHTML = Array.from({ length: SESSION_COUNT }, (_, i) => {
@@ -795,7 +797,7 @@ async function viewUsers() {
   let people = [], foundationNames = {};
   async function load() {
     const snap = await getDocs(collection(db, 'staff'));
-    people = snap.docs.map(d => d.data()).sort((a, b) =>
+    people = snap.docs.map(d => d.data()).filter(p => p.demo !== true).sort((a, b) =>
       (b.active === true) - (a.active === true) || ALL_ROLES.indexOf(a.role) - ALL_ROLES.indexOf(b.role) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
     foundationNames = await foundationNameMap().catch(() => ({}));
   }
@@ -1004,12 +1006,13 @@ async function viewFoundation(id, note) {
   function paint() {
     $('fv-count').textContent = `${people.filter(x => x.active).length} active`;
     $('fv-list').innerHTML = people.length ? people.map(x => `<tr class="${x.active ? '' : 'off'}">
-        <td><strong>${esc(x.name || '—')}</strong><div class="muted us-email">${esc(x.email)}</div></td>
+        <td><strong>${esc(x.name || '—')}</strong> ${x.demo ? '<span class="pill none">Demo</span>' : ''}<div class="muted us-email">${esc(x.email)}</div></td>
         <td>${x.active ? '<span class="pill ok">On</span>' : '<span class="pill none">Off</span>'}</td>
         <td class="muted us-when">${x.added_at ? when(x.added_at) : '—'}${x.added_by ? '<br>by ' + esc(x.added_by) : ''}</td>
-        <td class="us-acts">
-          <button class="btn ghost" data-resend="${esc(x.email)}" ${x.active ? '' : 'disabled'}>Resend link</button>
-          <button class="btn ${x.active ? 'ghost danger-text' : 'secondary'}" data-toggle="${esc(x.email)}">${x.active ? 'Switch off' : 'Switch on'}</button></td>
+        <td class="us-acts">${x.demo
+          ? `<span class="muted fv-persona">${DEMO_PERSONAS[x.email] ? `Demo login on the facilitator portal: <code>${esc(x.email)}</code> / <code>${DEMO_PERSONAS[x.email]}</code>` : 'Fictional — doesn’t sign in'}</span>`
+          : `<button class="btn ghost" data-resend="${esc(x.email)}" ${x.active ? '' : 'disabled'}>Resend link</button>
+          <button class="btn ${x.active ? 'ghost danger-text' : 'secondary'}" data-toggle="${esc(x.email)}">${x.active ? 'Switch off' : 'Switch on'}</button>`}</td>
       </tr>`).join('') : '<tr><td colspan="4"><div class="empty">No facilitators yet.</div></td></tr>';
     appEl.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
       const x = people.find(y => y.email === b.dataset.toggle);
@@ -1029,6 +1032,8 @@ async function viewFoundation(id, note) {
     }));
   }
   paint();
+  $('fv-deliveries').addEventListener('click', e => { e.preventDefault(); viewProvider(id); });
+  paintActivity(id).catch(e => { console.error(e); if ($('fv-cohorts')) $('fv-cohorts').innerHTML = '<div class="empty">Couldn’t load the cohorts.</div>'; });
 
   $('fv-add').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1058,4 +1063,72 @@ async function viewFoundation(id, note) {
     }
     btn.disabled = false; btn.textContent = 'Add and email invite';
   });
+}
+
+// ─── A Foundation's cohorts, groups and delivery ─────────────────────────────
+/** The demo facilitator portal's persona logins (wp-emulator.js). */
+const DEMO_PERSONAS = { 'alex@democollege.ac.uk': 'tftdemo', 'sam@demoacademy.ac.uk': 'tftdemo' };
+
+/**
+ * Everything the Foundation's facilitators have set up and delivered, from the
+ * database: each cohort (and its school), each group with its size, its
+ * baseline survey, sessions 1–6 and final survey — the same squares as the
+ * facilitator's dashboard. A delivered session opens its pledges; a survey
+ * opens that group on the Evaluation page. Names never appear: the database
+ * only has pseudonymous student slots, so sizes are counts.
+ */
+async function paintActivity(id) {
+  const [cohSnap, runSnap, svSnap] = await Promise.all([
+    getDocs(collection(db, 'providers', id, 'cohorts')),
+    getDocs(collection(db, 'providers', id, 'runs')),
+    getDocs(collection(db, 'providers', id, 'surveys'))
+  ]);
+  const cohorts = await Promise.all(cohSnap.docs.map(async c => {
+    const g = await getDocs(collection(db, 'providers', id, 'cohorts', c.id, 'groups'));
+    return { id: c.id, ...c.data(), groups: g.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.id).localeCompare(String(b.id))) };
+  }));
+  const runs = runSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const surveys = Object.fromEntries(svSnap.docs.map(d => [d.id, d.data()]));
+  if (!$('fv-cohorts')) return;
+  cohorts.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+
+  const delivered = (r) => r.status === 'closed' && (r.pledge_count || 0) > 0;
+  const last = (rs) => Math.max(0, ...rs.map(r => r.started_at?.seconds || 0));
+  $('fv-cstat').textContent = `${cohorts.length} cohort${cohorts.length === 1 ? '' : 's'} · ${cohorts.reduce((a, c) => a + c.groups.length, 0)} groups · ${runs.filter(delivered).length} sessions delivered`;
+  $('fv-cohorts').innerHTML = cohorts.length ? cohorts.map(c => `
+    <div class="card fc">
+      <div class="fc-head"><strong>${esc(c.label || c.id)}</strong>
+        <span class="muted">${[c.school, (c.student_count ?? '?') + ' students'].filter(Boolean).map(esc).join(' · ')}</span></div>
+      ${c.groups.map(g => {
+        const mine = runs.filter(r => r.cohort_id === c.id && r.group_id === g.id);
+        const cell = (n) => {
+          const done = mine.filter(r => r.session === n && delivered(r)).sort((a, b) => (b.started_at?.seconds || 0) - (a.started_at?.seconds || 0))[0];
+          const open = mine.find(r => r.session === n && r.status === 'open');
+          const r = done || open;
+          const tip = done ? `Session ${n}: delivered ${when(done.started_at)}, ${done.pledge_count} pledges` : open ? `Session ${n}: in progress` : `Session ${n}: not yet`;
+          return r ? `<button class="fc-c ${done ? 'done' : 'live'}" data-run="${esc(r.id)}" data-session="${n}" title="${esc(tip)}">${done ? '✓' : n}</button>`
+                   : `<span class="fc-c" title="${esc(tip)}">${n}</span>`;
+        };
+        const sv = (phase) => {
+          const s = surveys[`${c.id}__${g.id}__${phase}`];
+          const label = phase === 'baseline' ? 'B' : 'F';
+          return s ? `<button class="fc-c sv done" data-eval="${esc(c.id)}|${esc(g.id)}" title="${phase === 'baseline' ? 'Baseline' : 'Final'} survey: ${when(s.created_at)}, ${s.present} taking part">${label}</button>`
+                   : `<span class="fc-c sv" title="${phase === 'baseline' ? 'Baseline' : 'Final'} survey: not yet">${label}</span>`;
+        };
+        const pledges = mine.reduce((a, r) => a + (r.pledge_count || 0), 0);
+        return `<div class="fc-row">
+          <div class="fc-g">${esc(g.label || g.id)}<span class="muted">${g.size ?? '?'} students${last(mine) ? ' · last ' + when({ seconds: last(mine) }) : ''}</span></div>
+          <div class="fc-cells">${sv('baseline')}<i></i>${[1, 2, 3, 4, 5, 6].map(cell).join('')}<i></i>${sv('final')}</div>
+          <div class="muted fc-p">${pledges} pledge${pledges === 1 ? '' : 's'}</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('')
+    : '<div class="empty">No cohorts yet. They appear here when a facilitator sets one up and starts delivering.</div>';
+
+  appEl.querySelectorAll('#fv-cohorts [data-run]').forEach(b => b.addEventListener('click', () => viewRun(id, b.dataset.run, b.dataset.session)));
+  appEl.querySelectorAll('#fv-cohorts [data-eval]').forEach(b => b.addEventListener('click', () => {
+    const [cid, gid] = b.dataset.eval.split('|');
+    Object.assign(evalState, { provider: id, cohort: cid, group: gid });
+    viewEval();
+  }));
 }
